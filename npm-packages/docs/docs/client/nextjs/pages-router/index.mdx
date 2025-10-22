@@ -1,0 +1,73 @@
+---
+title: "Next.js Pages Router"
+sidebar_position: 250
+sidebar_label: "Next.js Pages Router"
+description:
+  "클라이언트 측 인증, API 라우트 및 서버 측 렌더링을 포함한 Next.js Pages Router에서 Convex를 사용하는 완전한 가이드."
+---
+
+import simpleAuthedAppTSX from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/_simpleAuthedApp.tsx";
+import apiTS from "!!raw-loader!@site/../demos/nextjs-pages-router/pages/api/clicks.ts";
+
+이 페이지는 Next.js의 Pages Router 변형을 다룹니다. 또는 이 페이지의
+[App Router](/client/nextjs/app-router/index.mdx) 버전을 참조하세요.
+
+## 시작하기
+
+[Next.js Pages Router 빠른 시작](/client/nextjs/pages-router/quickstart-nextjs-pages-router.mdx)을 따라 새로운 또는 기존 Next.js 프로젝트에 Convex를 추가하세요.
+
+## 클라이언트 측 인증 추가하기
+
+Next.js에서 인증에 대한 가장 간단한 접근 방식은 클라이언트 측으로 유지하는 것입니다.
+
+예를 들어 Auth0는
+[Next.js Authentication with Auth0 가이드](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0)에서 이 접근 방식을 설명하며,
+"[Next.js Static Site Approach](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0/#Next-js-Static-Site-Approach)"와 "Serverless with the user on the frontend"에서 설명합니다.
+
+애플리케이션의 모든 페이지에서 로그인이 필요하도록 하려면 `_app.jsx`에 로직을 추가하여 사용자가 로그인할 때까지 페이지 콘텐츠를 조건부로 렌더링하고 차단할 수 있습니다.
+
+Auth0를 사용하는 경우 헬퍼 컴포넌트 `ConvexProviderWithAuth0`을 `convex/react-auth0`에서 가져올 수 있습니다.
+
+<Snippet
+  title="pages/_app.jsx"
+  snippet="simpleAuthedApp"
+  source={simpleAuthedAppTSX}
+/>
+
+커스텀 로딩 및 로그아웃 뷰는 `convex/react`의 헬퍼 컴포넌트인
+`Authenticated`, `Unauthenticated` 및 `AuthLoading`으로 빌드할 수 있습니다. 예제는
+[Convex Next.js 데모](https://github.com/get-convex/convex-demos/tree/main/nextjs-pages-router/pages/_app.jsx)를 참조하세요.
+
+앱의 일부 라우트만 로그인이 필요한 경우, `pages/_app.jsx`에서 모든 페이지 간에 공유하는 대신 로그인이 필요한 페이지 컴포넌트에서 직접 동일한 헬퍼를 사용할 수 있습니다. 클라이언트 측 페이지 탐색 시 Convex에 다시 연결할 필요가 없도록 페이지 간에 단일
+[ConvexReactClient](/api/classes/react.ConvexReactClient) 인스턴스를 공유하세요.
+
+Convex로 사용자를 인증하는 방법에 대한 자세한 내용은 [인증](/auth.mdx)을 참조하세요.
+
+## API 라우트
+
+Next.js는 Convex
+[HTTP 액션](/functions/http-actions.mdx)과 유사한 HTTP 요청 처리 라우트 빌드를 지원합니다. Convex 기본 런타임에서 지원되지 않는 종속성을 사용해야 하는 경우 Next.js 라우트를 사용하는 것이 도움이 될 수 있습니다.
+
+[API 라우트](https://nextjs.org/docs/api-routes/introduction)를 빌드하려면 `pages/api` 디렉토리에 파일을 추가하세요.
+
+엔드포인트에서 Convex 데이터를 로드하고 편집하려면 `convex/nextjs`의
+[`fetchQuery`](/api/modules/nextjs#fetchquery) 함수를 사용하세요:
+
+<Snippet title="pages/api/clicks.js" source={apiTS} />
+
+## 서버 측 렌더링
+
+**Next.js를 사용할 때 Convex 데이터를 클라이언트 측에서 렌더링하는 것을 고려하세요.** Convex의 데이터는
+[완전히 반응형](/functions/query-functions.mdx#caching--reactivity--consistency)이므로 Convex는 데이터가 변경됨에 따라 업데이트를 푸시하기 위해 배포에서 브라우저로의 연결이 필요합니다.
+
+물론
+[`getStaticProps`](https://nextjs.org/docs/basic-features/data-fetching/get-static-props)나
+[`getServerSideProps`](https://nextjs.org/docs/basic-features/data-fetching/get-server-side-props)에서 Convex의 데이터를 로드할 수 있지만 반응형이 아닙니다. 이를 위해
+[`fetchQuery`](/api/modules/nextjs#fetchquery) 함수를 사용하여 [API 라우트](#api-routes)에서와 마찬가지로 쿼리 함수를 호출하세요.
+
+서버 측 렌더링 중 Convex에 인증된 요청을 하려면 서버 측에 인증 정보가 있어야 합니다. Auth0는
+[Serverless with the user on the backend](https://auth0.com/blog/ultimate-guide-nextjs-authentication-auth0/#Serverless-with-the-user-on-the-backend)에서 이 접근 방식을 설명합니다.
+서버 측 렌더링 시 인증 토큰을 `fetchQuery`의 세 번째 인수에 `token`으로 전달하세요.
+
+클라이언트 측에서 반응형 쿼리를 렌더링하기 전에 서버 측에서 데이터를 미리 로드하려면 [`preloadQuery`](/api/modules/nextjs#preloadquery)를 사용하세요. 자세한 내용은
+[이 문서의 App Router 버전](/client/nextjs/app-router/server-rendering.mdx)을 확인하세요.

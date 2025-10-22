@@ -1,0 +1,423 @@
+---
+title: "Best Practices"
+sidebar_position: 400
+toc_max_heading_level: 2
+description:
+  "Essential best practices for building scalable Convex applications including
+  database queries, function organization, validation, and security."
+---
+
+import BestPracticesTS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/index.ts";
+import HelperFunctionsTS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPractices/helperFunctions.ts";
+import UserHelpersJS from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpersJS.js";
+import Teams from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeams.ts";
+import TeamsJS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeamsJS.js";
+
+Convex 사용과 관련된 모범 사례 및 일반적인 안티패턴 목록입니다.
+앱을 프로덕션에 광범위하게 출시하기 전에 이 목록을 검토하는 것을 권장합니다. 처음부터 이러한 모범 사례를 모두 사용해 볼 수도 있고, 앱의 주요 부분이 작동한 후 이 모범 사례를 적용하는 것을 기다릴 수도 있습니다.
+
+## 모든 Promise await하기
+
+### 이유
+
+Convex 함수는 async / await를 사용합니다. 모든 promise를 await하지 않으면
+(예: `await ctx.scheduler.runAfter`, `await ctx.db.patch`) 예기치 않은 동작(예: 함수 스케줄링 실패)이 발생하거나 오류 처리를 놓칠 수 있습니다.
+
+### 방법
+
+TypeScript와 함께
+[no-floating-promises](https://typescript-eslint.io/rules/no-floating-promises/)
+eslint 규칙을 사용하는 것을 권장합니다.
+
+## 데이터베이스 쿼리에서 `.filter` 피하기
+
+### 이유
+
+`.filter` 구문 대신 코드에서 필터링하는 것이 동일한 성능을 가지며, 일반적으로 작성하기 더 쉬운 코드입니다. `.withIndex` 또는 `.withSearchIndex`의 조건이 `.filter` 또는 코드에서의 필터링보다 더 효율적이므로, 거의 모든 `.filter` 사용은 `.withIndex` 또는 `.withSearchIndex` 조건으로 대체하거나 TypeScript 코드로 작성해야 합니다.
+
+인덱스가 어떻게 정의되고 작동하는지에 대한 개요는
+[인덱스 문서](/database/reading-data/indexes/indexes-and-query-perf.md)를 읽어보세요.
+
+### 예제
+
+<TSAndJSSnippet
+  title="convex/messages.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="filter"
+/>
+
+### 방법
+
+Convex 코드베이스에서 `.filter`를 검색하세요 — `\.filter\(\(?q`와 같은 정규식이 데이터베이스 쿼리에 대한 모든 것을 찾을 것입니다.
+
+[이 섹션](/understanding/best-practices/best-practices.mdx#only-use-collect-with-a-small-number-of-results)에 따라, 많은(1000개 이상) 또는 잠재적으로 무제한의 문서를 필터링하는 경우 인덱스를 사용해야 하는지 결정하세요. `.withIndex` / `.withSearchIndex` 조건을 사용하지 않는 경우, 더 나은 가독성과 유연성을 위해 코드에서 필터로 대체하는 것을 고려하세요.
+
+더 많은 필터링 전략은 [이 문서](https://stack.convex.dev/complex-filters-in-convex)를 참조하세요.
+
+### 예외
+
+페이지네이션된 쿼리(`.paginate`)에서 `.filter`를 사용하는 것은 코드에서 필터링하는 것보다 장점이 있습니다. 페이지네이션된 쿼리는 `.filter` 조건을 포함하여 요청된 수의 문서를 반환하므로, 나중에 코드에서 필터링하면 더 작은 페이지 또는 빈 페이지가 될 수 있습니다. 페이지네이션된 쿼리에서 `.withIndex`를 사용하는 것은 여전히 `.filter`보다 더 효율적입니다.
+
+## 적은 수의 결과에만 `.collect` 사용하기
+
+### 이유
+
+`.collect`에서 반환된 모든 결과는 데이터베이스 대역폭에 포함됩니다(`.filter`로 필터링된 결과도 포함). 또한 결과의 문서가 변경되면 쿼리가 다시 실행되거나 뮤테이션이 충돌을 일으킵니다.
+
+결과 수가 많을 가능성이 있는 경우(예: 1000개 이상의 문서), `.collect`를 호출하기 전에 인덱스를 사용하여 결과를 추가로 필터링하거나, 페이지네이션 사용, 데이터 비정규화, 제품 기능 변경 등 모든 문서를 로드하지 않는 다른 방법을 찾아야 합니다.
+
+### 예제
+
+**인덱스 사용:**
+
+<TSAndJSSnippet
+  title="convex/movies.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="collectIndex"
+/>
+
+**페이지네이션 사용:**
+
+<TSAndJSSnippet
+  title="convex/movies.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="collectPaginate"
+/>
+
+**제한 또는 비정규화 사용:**
+
+<TSAndJSSnippet
+  title="convex/movies.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="collectCount"
+/>
+
+### 방법
+
+Convex 코드베이스에서 `.collect`를 검색하세요(`\.collect\(`와 같은 정규식이 이것들을 찾을 것입니다). 결과 수가 적은지 생각해보세요. 대시보드의 함수 상태 페이지도 이를 파악하는 데 도움이 될 수 있습니다.
+
+[aggregate 컴포넌트](https://www.npmjs.com/package/@convex-dev/aggregate) 또는 [데이터베이스 트리거](https://stack.convex.dev/triggers)는 데이터 비정규화에 유용한 패턴이 될 수 있습니다.
+
+### 예외
+
+많은 수의 문서를 로드해야 하는 작업(예: 마이그레이션 수행, 요약 만들기)을 수행하는 경우, 액션을 사용하여 별도의 쿼리/뮤테이션을 통해 배치로 로드할 수 있습니다.
+
+## 중복 인덱스 확인하기
+
+### 이유
+
+`by_foo` 및 `by_foo_and_bar`와 같은 인덱스는 일반적으로 중복입니다(`by_foo_and_bar`만 필요). 인덱스 수를 줄이면 데이터베이스 스토리지를 절약하고 테이블에 쓰기의 오버헤드를 줄일 수 있습니다.
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="redundantIndexes"
+  replacements={[[/\sOMIT_ME.*/g, ""]]}
+/>
+
+### 방법
+
+`schema.ts` 파일 또는 대시보드에서 인덱스를 살펴보고, 한 인덱스가 다른 인덱스의 접두사인 인덱스를 찾으세요.
+
+### 예외
+
+`.index("by_foo", ["foo"])`는 실제로 `foo` 및 `_creationTime` 속성에 대한 인덱스이며, `.index("by_foo_and_bar", ["foo", "bar"])`는 `foo`, `bar` 및 `_creationTime` 속성에 대한 인덱스입니다. `foo` 다음 `_creationTime`으로 정렬해야 하는 쿼리가 있는 경우 두 인덱스가 모두 필요합니다.
+
+예를 들어, 메시지 테이블의 `.index("by_channel", ["channel"])`은 채널의 최신 메시지를 쿼리하는 데 사용할 수 있지만, `.index("by_channel_and_author", ["channel", "author"])`는 먼저 `author`로 메시지를 정렬하므로 이 용도로 사용할 수 없습니다.
+
+## 모든 공개 함수에 인수 검증기 사용하기
+
+### 이유
+
+공개 함수는 앱을 해킹하려는 악의적인 공격자를 포함하여 누구나 호출할 수 있습니다.
+[인수 검증기](/functions/validation.mdx)(및 반환 값 검증기)는 예상한 트래픽을 받고 있는지 확인하는 데 도움이 됩니다.
+
+### 예제
+
+<TSAndJSSnippet
+  title="convex/messages.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="validation"
+  replacements={[[/_OMIT_[0-9]+/g, ""]]}
+/>
+
+### 방법
+
+Convex 코드베이스에서 `query`, `mutation`, `action`을 검색하고, 모두 인수 검증기(및 선택적으로 반환 값 검증기)가 있는지 확인하세요. `httpAction`이 있는 경우, HTTP 요청이 예상한 형태인지 검증하기 위해 `zod`와 같은 것을 사용할 수 있습니다.
+
+## 모든 공개 함수에 접근 제어 사용하기
+
+### 이유
+
+공개 함수는 앱을 해킹하려는 악의적인 공격자를 포함하여 누구나 호출할 수 있습니다. 앱의 일부가 사용자가 로그인한 경우에만 접근 가능해야 한다면, 모든 Convex 함수가 `ctx.auth.getUserIdentity()`가 설정되었는지 확인하세요.
+
+현재 사용자에게 전송되었거나 현재 사용자로부터 전송된 메시지만 로드하는 것과 같은 특정 검사가 있을 수 있으며, 모든 관련 공개 함수에 이를 적용해야 합니다.
+
+`updateTeam`보다 `setTeamOwner`와 같은 더 세분화된 함수를 선호하면 어떤 사용자가 무엇을 할 수 있는지에 대한 더 세분화된 검사가 가능합니다.
+
+접근 제어 검사는 `ctx.auth.getUserIdentity()` 또는 추측할 수 없는 함수 인수(예: UUID 또는 Convex ID, 이 ID가 한 사용자 외에 다른 클라이언트에 노출되지 않는 경우)를 사용해야 합니다. 특히, 접근 제어 검사에 스푸핑될 수 있는 함수 인수(예: 이메일)를 사용하지 마세요.
+
+### 예제
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="accessControl"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+### 방법
+
+Convex 코드베이스에서 `query`, `mutation`, `action`, `httpAction`을 검색하고, 모두 어떤 형태의 접근 제어가 있는지 확인하세요.
+[사용자 정의 함수](https://github.com/get-convex/convex-helpers/blob/main/packages/convex-helpers/README.md#custom-functions) (예:
+[`authenticatedQuery`](https://stack.convex.dev/custom-functions#modifying-the-ctx-argument-to-a-server-function-for-user-auth))가 도움이 될 수 있습니다.
+
+일부 앱은 [이 문서](https://stack.convex.dev/row-level-security)에 설명된 대로 문서가 로드될 때마다 자동으로 각 문서에 대한 접근을 확인하기 위해 행 수준 보안(RLS)을 사용합니다. 또는 각 문서에 대한 접근을 확인하는 대신 각 Convex 함수에서 접근을 확인할 수 있습니다.
+
+일반적인 검사 및 일반적인 작업을 위한 도우미 함수도 유용할 수 있습니다 — 예: `isTeamMember`, `isTeamAdmin`, `loadTeam`(현재 사용자가 팀에 접근할 수 없는 경우 throw).
+
+## 내부 함수만 스케줄 및 `ctx.run*` 하기
+
+### 이유
+
+공개 함수는 앱을 해킹하려는 악의적인 공격자를 포함하여 누구나 호출할 수 있으며, 악의적으로 사용될 수 없도록 신중하게 감사해야 합니다. Convex 내에서만 호출되는 함수는 내부로 표시할 수 있으며, Convex가 내부 함수가 Convex 내에서만 호출될 수 있도록 보장하므로 이러한 검사를 완화할 수 있습니다.
+
+### 방법
+
+Convex 코드베이스에서 `ctx.runQuery`, `ctx.runMutation`, `ctx.runAction`을 검색하세요. 또한 `ctx.scheduler`를 검색하고 `crons.ts` 파일을 확인하세요. 이 모든 것이 `api.foo.bar` 함수 대신 `internal.foo.bar` 함수를 사용하는지 확인하세요.
+
+공개 Convex 함수와 내부 Convex 함수 간에 공유하려는 코드가 있는 경우, 둘 다에서 호출할 수 있는 도우미 함수를 만드세요. 공개 함수는 추가 접근 제어 검사를 가질 것입니다.
+
+또는 `_generated/api.ts`의 `api`가 Convex 함수 디렉토리에서 사용되지 않도록 하세요.
+
+### 예제
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="internal"
+  replacements={[
+    [/_OMIT_[0-9]+/g, ""],
+    [
+      "// REPLACE_WITH_MUTATION_CTX_IMPORT",
+      "import { MutationCtx } from './_generated/server';",
+    ],
+  ]}
+/>
+
+## 공유 코드를 작성하기 위해 도우미 함수 사용하기
+
+### 이유
+
+대부분의 로직은 일반 TypeScript 함수로 작성되어야 하며, `query`, `mutation`, `action` 래퍼 함수는 하나 이상의 도우미 함수에 대한 얇은 래퍼가 되어야 합니다.
+
+구체적으로, 대부분의 코드는 `convex/model`과 같은 디렉토리에 있어야 하며, `query`, `mutation`, `action`으로 정의된 공개 API는 주로 `convex/model`을 호출하는 매우 짧은 함수를 가져야 합니다.
+
+이러한 방식으로 코드를 구성하면 이 목록에 언급된 여러 리팩토링을 더 쉽게 수행할 수 있습니다.
+
+유용한 타입은 [TypeScript 페이지](/understanding/best-practices/typescript.mdx)를 참조하세요.
+
+### 예제
+
+**❌** 이 예제는 `ctx.runQuery`와 `ctx.runMutation`을 과도하게 사용하는데, 이는
+[액션에서 순차적인 `ctx.runMutation` / `ctx.runQuery` 피하기](/understanding/best-practices/best-practices.mdx#avoid-sequential-ctxrunmutation--ctxrunquery-calls-from-actions)
+섹션에서 자세히 설명됩니다.
+
+<TSAndJSSnippet
+  title="convex/users.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="usersWrong"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+<TSAndJSSnippet
+  title="convex/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsWrong"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+**✅** 이제 대부분의 코드가 `convex/model` 디렉토리에 있습니다. 이 애플리케이션의 API는 `convex/conversations.ts`에 있으며, 코드 자체는 거의 포함되어 있지 않습니다.
+
+<TSAndJSSnippet
+  title="convex/model/users.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="usersCorrect"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+  prefix={`import { QueryCtx } from '../_generated/server';\n`}
+/>
+
+<TSAndJSSnippet
+  title="convex/model/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsModelCorrect"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+  prefix={`import { QueryCtx, MutationCtx } from '../_generated/server';\nimport * as Users from './users';\n`}
+/>
+
+<TSAndJSSnippet
+  title="convex/conversations.ts"
+  sourceTS={HelperFunctionsTS}
+  sourceJS={HelperFunctionsTS}
+  snippet="conversationsApiCorrect"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+  prefix={`import * as Conversations from './model/conversations';\n`}
+/>
+
+## 다른 런타임을 사용할 때만 `runAction` 사용하기
+
+### 이유
+
+`runAction`을 호출하는 것은 일반 TypeScript 함수를 호출하는 것보다 더 많은 오버헤드가 있습니다. 자체 메모리 및 CPU 사용량을 가진 추가 함수 호출로 계산되며, 부모 액션은 결과를 기다리는 것 외에는 아무것도 하지 않습니다. 따라서 `runAction`은 거의 항상 일반 TypeScript 함수 호출로 대체되어야 합니다. 그러나 Convex 런타임의 함수에서 Node.js가 필요한 코드를 호출하려는 경우(예: Node.js가 필요한 라이브러리 사용), `runAction`을 사용하여 Node.js 코드를 호출할 수 있습니다.
+
+### 예제
+
+<TSAndJSSnippet
+  title="convex/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runAction"
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+<TSAndJSSnippet
+  title="convex/model/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="scrapeModel"
+  prefix={`import { ActionCtx } from '../_generated/server';\n`}
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+<TSAndJSSnippet
+  title="convex/scrape.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="scrapeAction"
+  prefix={`import * as Scrape from './model/scrape';\n`}
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+### 방법
+
+Convex 코드베이스에서 `runAction`을 검색하고, 호출하는 함수가 부모 함수와 동일한 런타임을 사용하는지 확인하세요. 그렇다면 `runAction`을 일반 TypeScript 함수로 대체하세요. Node.js 함수가 별도의 디렉토리에 있도록 함수를 구조화하면 이를 더 쉽게 파악할 수 있습니다.
+
+## 액션에서 순차적인 `ctx.runMutation` / `ctx.runQuery` 호출 피하기
+
+### 이유
+
+각 `ctx.runMutation` 또는 `ctx.runQuery`는 자체 트랜잭션에서 실행됩니다. 즉, 별도로 호출되면 서로 일관성이 없을 수 있습니다. 대신 단일 `ctx.runQuery` 또는 `ctx.runMutation`을 호출하면 얻은 결과가 일관성이 있음을 보장받습니다.
+
+### 방법
+
+액션에서 `ctx.runQuery` 및 `ctx.runMutation` 호출을 감사하세요. 사이에 다른 코드가 없이 여러 개가 연속으로 있는 경우, 둘 다 처리하는 단일 `ctx.runQuery` 또는 `ctx.runMutation`으로 대체하세요. 도우미 함수를 사용하도록 코드를 리팩토링하면 이것이 더 쉬워집니다.
+
+### 예제: 쿼리
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runQueryWrong"
+/>
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runQueryCorrect"
+  prefix={`import * as Teams from './model/teams';\nimport * as Users from './model/users';\n`}
+/>
+
+### 예제: 루프
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runMutationWrong"
+  prefix={`import * as Users from './model/users';\n`}
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+<TSAndJSSnippet
+  title="convex/teams.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="runMutationCorrect"
+  prefix={`import * as Users from './model/users';\n`}
+  replacements={[
+    [/\sOMIT_ME.*/g, ""],
+    [/_OMIT_[0-9]+/g, ""],
+  ]}
+/>
+
+### 예외
+
+마이그레이션 실행이나 데이터 집계와 같이 단일 트랜잭션에 맞는 것보다 더 많은 데이터를 의도적으로 처리하려는 경우, 여러 순차적인 `ctx.runMutation` / `ctx.runQuery` 호출이 타당합니다.
+
+여러 `ctx.runQuery` / `ctx.runMutation` 호출은 액션이 그 사이에 부작용을 수행하기 때문에 종종 필요합니다. 예를 들어, 일부 데이터를 읽고, 외부 서비스에 공급하고, 결과를 데이터베이스에 다시 쓰는 경우입니다.
+
+## 쿼리 및 뮤테이션에서 `ctx.runQuery` 및 `ctx.runMutation` 아껴 사용하기
+
+### 이유
+
+이러한 쿼리 및 뮤테이션은 동일한 트랜잭션에서 실행되고 일관된 결과를 제공하지만, 일반 TypeScript 함수에 비해 추가 오버헤드가 있습니다. TypeScript 도우미 함수를 원하는 것이 `ctx.runQuery` 또는 `ctx.runMutation`이 필요한 것보다 훨씬 더 일반적입니다.
+
+### 방법
+
+쿼리 및 뮤테이션에서 `ctx.runQuery` 및 `ctx.runMutation` 호출을 감사하세요. 아래 예외 중 하나가 적용되지 않으면 일반 TypeScript 함수로 대체하세요.
+
+### 예외
+
+- 컴포넌트를 사용하는 경우, `ctx.runQuery` 또는 `ctx.runMutation`이 필요합니다.
+- 오류 시 부분 롤백을 원하는 경우, 일반 TypeScript 함수 대신 `ctx.runMutation`을 원할 것입니다.
+
+<TSAndJSSnippet
+  title="convex/messages.ts"
+  sourceTS={BestPracticesTS}
+  sourceJS={BestPracticesTS}
+  snippet="partialRollback"
+/>

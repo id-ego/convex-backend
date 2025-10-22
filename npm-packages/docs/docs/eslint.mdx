@@ -1,0 +1,204 @@
+---
+title: ESLint rules
+sidebar_position: 30
+description: ESLint rules for Convex
+---
+
+Convex 함수를 위한 ESLint 규칙은 모범 사례를 강제합니다. 도움이 될 만한 규칙이 있다면 알려주세요!
+
+## 설정
+
+ESLint 9 (flat config, `eslint.config.js` 사용)의 경우, 다음과 같이 규칙을 설치하세요:
+
+```bash
+npm i @convex-dev/eslint-plugin --save-dev
+```
+
+그리고 `eslint.config.js` 파일에 다음을 추가하세요:
+
+```ts
+import convexPlugin from "@convex-dev/eslint-plugin";
+import { defineConfig } from "eslint/config";
+
+export default defineConfig([
+  // Other configurations
+
+  ...convexPlugin.configs.recommended,
+]);
+```
+
+<Details summary={<>더 이상 사용되지 않는 <code>.eslintrc.js</code> 형식을 사용하는 경우</>}>
+
+다음 두 라이브러리를 설치하세요:
+
+```bash
+npm i @typescript-eslint/eslint-plugin @convex-dev/eslint-plugin --save-dev
+```
+
+`.eslintrc.js`에 다음을 추가하세요:
+
+```js
+module.exports =
+  extends: [
+    // Other configurations
+    "plugin:@typescript-eslint/recommended",
+    "plugin:@convex-dev/recommended",
+  ],
+  ignorePatterns: ["node_modules/", "dist/", "build/"],
+};
+```
+
+</Details>
+
+<Details summary={<>Convex 함수가 <code>convex</code>가 아닌 다른 디렉토리에 있는 경우</>}>
+
+기본적으로 Convex ESLint 플러그인은 `convex` 디렉토리에만 규칙을 적용합니다.
+
+[Convex 디렉토리 위치를 사용자 지정](/production/project-configuration#changing-the-convex-folder-name-or-location)하는 경우, ESLint 구성을 다음과 같이 조정하세요:
+
+```ts
+// eslint.config.js
+
+import convexPlugin from "@convex-dev/eslint-plugin";
+
+const recommendedConfig = convexPlugin.configs.recommended[0];
+const recommendedRules = recommendedConfig.rules;
+
+export default [
+  // Other configurations go here...
+
+  // Custom configuration with modified directory pattern
+  {
+    files: ["**/src/convex/**/*.ts"],
+    plugins: {
+      "@convex-dev": convexPlugin,
+    },
+    rules: recommendedRules,
+  },
+];
+```
+
+</Details>
+
+<Details summary={<>Next.js의 <code>next lint</code> 명령을 사용하는 경우</>}>
+
+`next lint`가 `convex` 디렉토리에서 ESLint를 실행하도록 하려면 해당 디렉토리를 기본 디렉토리 세트에 추가해야 합니다. `next.config.ts`에 다음 섹션을 추가하세요:
+
+```ts
+const nextConfig: NextConfig = {
+  /* other options here */
+
+  eslint: {
+    dirs: ["pages", "app", "components", "lib", "src", "convex"],
+  },
+};
+```
+
+</Details>
+
+## 규칙
+
+| 규칙                                                                                                                                    | 권장 | 자동 수정 가능 |
+| --------------------------------------------------------------------------------------------------------------------------------------- | :---------: | :----------: |
+| [`@convex-dev/no-old-registered-function-syntax`](#no-old-registered-function-syntax)<br/>등록된 함수에 객체 구문 선호 |     ✅      |      🔧      |
+| [`@convex-dev/require-argument-validators`](#require-argument-validators)<br/>Convex 함수에 인수 검증기 필수          |     ✅      |      🔧      |
+| [`@convex-dev/import-wrong-runtime`](#import-wrong-runtime)<br/>Convex 런타임 파일이 Node 런타임 파일에서 가져오는 것을 방지     |             |              |
+
+### no-old-registered-function-syntax
+
+등록된 함수에 객체 구문을 선호합니다.
+
+Convex 쿼리, 뮤테이션, 액션은 단일 함수 또는 handler 속성을 포함하는 객체로 정의할 수 있습니다. 객체를 사용하면 인수 및 반환 값 검증기를 추가할 수 있으므로 항상 선호됩니다.
+
+```ts
+// ✅ Allowed by this rule:
+export const list = query({
+  handler: async (ctx) => {
+    const data = await ctx.db.query("messages").collect();
+    ...
+  },
+});
+
+// ❌ Not allowed by this rule:
+export const list = query(async (ctx) => {
+  const data = await ctx.db.query("messages").collect();
+  ...
+});
+```
+
+### require-argument-validators
+
+Convex 함수에 인수 검증기를 필수로 합니다.
+
+Convex 쿼리, 뮤테이션, 액션은 핸들러 함수를 실행하기 전에 인수를 검증할 수 있습니다. 인수 타입을 검증하는 간결한 방법일 뿐만 아니라, 인수 검증기를 사용하면 더 상세한 함수 스펙을 생성할 수 있어 OpenAPI 바인딩을 생성하는 데 도움이 됩니다.
+
+```ts
+// ✅ Allowed by this rule:
+export const list = query({
+  args: {},
+  handler: async (ctx) => {
+    ...
+  },
+});
+
+// ✅ Allowed by this rule:
+export const list = query({
+  args: { channel: v.id('channel') },
+  handler: async (ctx, { channel }) => {
+    ...
+  },
+});
+
+// ❌ Not allowed with option { ignoreUnusedArguments: false } (default)
+// ✅ Allowed with option { ignoreUnusedArguments: true }
+export const list = query({
+  handler: async (ctx) => {
+    ...
+  },
+});
+
+// ❌ Not allowed by this rule:
+export const list = query({
+  handler: async (ctx, { channel }: { channel: Id<"channel"> }) => {
+    ...
+  },
+});
+```
+
+이 규칙은 인수 검증기를 정의하지 않지만 인수를 사용하지 않는 함수를 허용하도록 사용자 지정할 수 있습니다. 이러한 방식으로 규칙을 설정하는 방법은 다음과 같습니다:
+
+```ts
+// eslint.config.js
+
+export default defineConfig([
+  // Your other rules…
+
+  {
+    files: ["**/convex/**/*.ts"],
+    rules: {
+      "@convex-dev/require-args-validator": [
+        "error",
+        {
+          ignoreUnusedArguments: true,
+        },
+      ],
+    },
+  },
+]);
+```
+
+### import-wrong-runtime
+
+Convex 런타임 파일이 Node 런타임 파일(`"use node"` 지시문이 있는 파일)에서 가져오는 것을 방지합니다.
+
+이 규칙은 실험적입니다. 도움이 되었다면 알려주세요!
+
+```ts
+// In a file that doesn't use `"use node"`:
+
+// ✅ Allowed by this rule:
+import { someFunction } from "./someOtherFile"; // where someOtherFile doesn't use `"use node"`
+
+// ❌ Not allowed by this rule:
+import { someFunction } from "./someNodeFile"; // where someNodeFile uses `"use node"`
+```

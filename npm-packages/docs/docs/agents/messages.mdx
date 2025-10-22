@@ -1,0 +1,279 @@
+---
+title: 메시지
+sidebar_label: "메시지"
+sidebar_position: 300
+description: "에이전트와 메시지 송수신하기"
+---
+
+에이전트 컴포넌트는 메시지와 [스레드](./threads.mdx) 기록을 저장하여 사람과 에이전트 간의 대화를 가능하게 합니다.
+
+사람이 에이전트 역할을 하는 방법을 보려면 [휴먼 에이전트](./human-agents.mdx)를 참조하세요.
+
+## 메시지 조회하기
+
+클라이언트가 메시지를 표시하려면 메시지를 반환하는 쿼리를 노출해야 합니다. 스트리밍의 경우 [스트리밍된 델타 조회](./streaming.mdx#retrieving-streamed-deltas)에서 이 쿼리의 수정된 버전을 참조하세요.
+
+서버 측 코드는 [chat/basic.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/basic.ts)를, 스트리밍 예제는 [chat/streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)를 참조하세요.
+
+```ts
+import { paginationOptsValidator } from "convex/server";
+import { v } from "convex/values";
+import { listUIMessages } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+export const listThreadMessages = query({
+  args: { threadId: v.string(), paginationOpts: paginationOptsValidator },
+  handler: async (ctx, args) => {
+    await authorizeThreadAccess(ctx, threadId);
+
+    const paginated = await listUIMessages(ctx, components.agent, args);
+
+    // Here you could filter out / modify the documents
+    return paginated;
+  },
+});
+```
+
+참고: 위에서 `listUIMessages`를 사용했는데, 이는 order, status 등과 같은 추가 필드를 포함하는 에이전트 확장인 UIMessages를 반환합니다. UIMessages는 여러 툴 호출 뒤에 어시스턴트 메시지가 있을 때 여러 MessageDocs를 하나의 UIMessage로 결합하여 UIMessage의 다양한 "parts"와 함께 작동하는 UI를 쉽게 구축할 수 있게 합니다.
+
+MessageDocs를 가져오려면 대신 `listMessages`를 사용할 수 있습니다.
+
+## React에서 메시지 표시하기
+
+스트리밍 예제는 [ChatStreaming.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatStreaming.tsx)를, 비스트리밍 예제는 [ChatBasic.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatBasic.tsx)를 참조하세요.
+
+### `useUIMessages` 훅
+
+핵심은 `useUIMessages` 훅을 사용하는 것입니다. 스트리밍의 경우 훅에 `stream: true`를 전달합니다.
+
+```tsx
+import { api } from "../convex/_generated/api";
+import { useUIMessages } from "@convex-dev/agent/react";
+
+function MyComponent({ threadId }: { threadId: string }) {
+  const { results, status, loadMore } = useUIMessages(
+    api.chat.streaming.listMessages,
+    { threadId },
+    { initialNumItems: 10 /* stream: true */ },
+  );
+  return (
+    <div>
+      {results.map((message) => (
+        <div key={message.key}>{message.text}</div>
+      ))}
+    </div>
+  );
+}
+```
+
+참고: UIMessages 대신 MessageDocs를 사용하려면 이전 `useThreadMessages` 훅을 사용할 수 있습니다. 그러나 UIMessages를 사용하면 에이전트가 활발하게 추론 중인지 여부와 같은 상태를 포함하여 더 풍부한 스트리밍 기능을 사용할 수 있습니다.
+
+### UIMessage 타입
+
+에이전트 컴포넌트는 AI SDK의 `UIMessage` 타입을 확장하여 메시지 렌더링에 편리한 메타데이터를 제공합니다.
+
+AI SDK의 핵심 UIMessage 타입은 다음과 같습니다:
+
+- `parts`는 parts 배열입니다(예: "text", "file", "image", "toolCall", "toolResult")
+- `content`는 메시지 내용의 문자열입니다.
+- `role`은 메시지의 역할입니다(예: "user", "assistant", "system").
+
+헬퍼는 다음 추가 필드를 추가합니다:
+
+- `key`는 메시지의 고유 식별자입니다.
+- `order`는 스레드에서 메시지의 순서입니다.
+- `stepOrder`는 스레드에서 메시지의 단계 순서입니다.
+- `status`는 메시지의 상태입니다(또는 "streaming").
+- `agentName`은 메시지를 생성한 에이전트의 이름입니다.
+- `text`는 메시지의 텍스트입니다.
+- `_creationTime`은 메시지의 타임스탬프입니다. 스트리밍 메시지의 경우 현재 스트리밍 클라이언트의 현재 시간으로 할당됩니다.
+
+이를 참조하려면 `@convex-dev/agent`에서 `UIMessage`를 가져와야 합니다.
+
+#### `toUIMessages` 헬퍼
+
+`toUIMessages`는 MessageDocs를 AI SDK "UIMessage"로 변환하는 헬퍼 함수입니다. 이는 메시지를 표시하는 데 편리한 데이터 모델입니다.
+
+예를 들어 `useThreadMessages`를 사용하는 경우 다음과 같이 메시지를 UIMessages로 변환할 수 있습니다:
+
+```ts
+import { toUIMessages, type UIMessage } from "@convex-dev/agent";
+
+...
+const { results } = useThreadMessages(...);
+const uiMessages = toUIMessages(results);
+```
+
+### 메시지 전송을 위한 optimistic updates
+
+`optimisticallySendMessage` 함수는 메시지를 전송하기 위한 헬퍼 함수로, 서버에서 mutation이 완료될 때까지 메시지 목록에 메시지를 optimistically하게 표시할 수 있습니다.
+
+메시지를 나열하는 데 사용 중인 쿼리를 전달하면 목록의 맨 위에 임시 메시지가 삽입됩니다.
+
+```ts
+const sendMessage = useMutation(
+  api.streaming.streamStoryAsynchronously,
+).withOptimisticUpdate(
+  optimisticallySendMessage(api.streaming.listThreadMessages),
+);
+```
+
+인자에 `{ threadId, prompt }`가 포함되지 않은 경우 optimistic update에서 헬퍼 함수로 사용할 수 있습니다:
+
+```ts
+import { optimisticallySendMessage } from "@convex-dev/agent/react";
+
+const sendMessage = useMutation(
+  api.chatStreaming.streamStoryAsynchronously,
+).withOptimisticUpdate(
+  (store, args) => {
+    optimisticallySendMessage(api.chatStreaming.listThreadMessages)(store, {
+      threadId:
+      prompt: /* change your args into the user prompt. */,
+    })
+  }
+);
+```
+
+## 메시지 저장하기
+
+기본적으로 에이전트는 프롬프트로 제공할 때 메시지를 데이터베이스에 자동으로 저장하며, 생성된 모든 메시지도 저장합니다.
+
+그러나 프롬프트 메시지를 미리 저장하고 `promptMessageId`를 사용하여 대화를 계속하는 것이 유용합니다. 자세한 내용은 [에이전트 사용법](./agent-usage.mdx)을 참조하세요.
+
+`saveMessage` 또는 `saveMessages`를 사용하여 에이전트 클래스에서 또는 직접 함수 호출로 데이터베이스에 메시지를 수동으로 저장할 수 있습니다.
+
+- `prompt` 또는 전체 `message`(`ModelMessage` 타입)를 전달할 수 있습니다.
+- `metadata` 인자는 선택 사항이며 `sources`, `reasoningDetails`, `usage`, `warnings`, `error` 등과 같은 더 많은 세부 정보를 제공할 수 있습니다.
+
+```ts
+const { messageId } = await saveMessage(ctx, components.agent, {
+  threadId,
+  userId,
+  message: { role: "user", content: "The user message" },
+});
+```
+
+참고: 원시 프롬프트로 `agent.generateText`를 호출할 때 벡터 검색을 위한 임베딩이 자동으로 생성됩니다(텍스트 임베딩 모델이 구성된 경우). 액션에서 호출할 때 `agent.saveMessage`도 마찬가지입니다. 그러나 LLM을 호출할 수 없는 mutation에서 메시지를 저장하는 경우, `generateText`가 임베딩이 없는 `promptMessageId`를 받으면 자동으로 생성합니다(텍스트 임베딩 모델이 구성된 경우).
+
+### 에이전트 클래스 없이:
+
+참고: 텍스트 임베딩 모델이 설정되지 않은 에이전트 클래스를 사용하지 않는 경우, 동시에 저장하려면 `embedding`을 전달해야 합니다.
+
+```ts
+import { saveMessage } from "@convex-dev/agent";
+
+const { messageId } = await saveMessage(ctx, components.agent, {
+  threadId,
+  userId,
+  message: { role: "assistant", content: result },
+  metadata: [{ reasoning, usage, ... }] // See MessageWithMetadata type
+  agentName: "my-agent",
+  embedding: { vector: [0.1, 0.2, ...], model: "text-embedding-3-small" },
+});
+```
+
+### 에이전트 클래스 사용:
+
+```ts
+const { messageId } = await agent.saveMessage(ctx, {
+  threadId,
+  userId,
+  prompt,
+  metadata,
+});
+```
+
+```ts
+const { messages } = await agent.saveMessages(ctx, {
+  threadId, userId,
+  messages: [{ role, content }],
+  metadata: [{ reasoning, usage, ... }] // See MessageWithMetadata type
+});
+```
+
+mutation에서 메시지를 저장하고 텍스트 임베딩 모델이 설정된 경우 `skipEmbeddings: true`를 전달합니다. 메시지가 프롬프트로 사용되면 메시지의 임베딩이 지연되어 생성됩니다. 또는 사용 가능한 경우 임베딩을 미리 제공하거나 나중에 `agent.generateEmbeddings`를 사용하여 명시적으로 생성할 수 있습니다.
+
+## 메시지 저장 구성하기
+
+일반적으로 기본값이 괜찮지만, 여러 메시지를 전달하고 모두 저장하거나(마지막 메시지만 저장하는 대신) 입력 또는 출력 메시지를 저장하지 않으려면 에이전트 생성자 또는 메시지별로 `storageOptions` 객체를 전달할 수 있습니다.
+
+여러 메시지를 전달하지만 저장하지 않는 사용 사례는 LLM에 일부 추가 메시지를 컨텍스트로 포함하지만 마지막 메시지만 사용자의 실제 요청인 경우입니다. 예: `messages = [...messagesFromRag, messageFromUser]`. 기본값은 프롬프트와 모든 출력 메시지를 저장하는 것입니다.
+
+```ts
+const result = await thread.generateText({ messages }, {
+  storageOptions: {
+    saveMessages: "all" | "none" | "promptAndOutput";
+  },
+});
+```
+
+## 메시지 순서
+
+각 메시지에는 스레드에 특정한 증가하는 정수인 `order` 및 `stepOrder` 필드가 있습니다.
+
+`saveMessage` 또는 `generateText`가 호출되면 메시지가 `stepOrder` 0으로 스레드의 다음 `order`에 추가됩니다.
+
+해당 메시지에 대한 응답 메시지가 생성되면 동일한 `order`에 다음 `stepOrder`로 추가됩니다.
+
+응답 메시지를 이전 메시지와 연결하려면 `generateText` 및 기타에 `promptMessageId`를 전달할 수 있습니다.
+
+참고: `promptMessageId`가 스레드의 최신 메시지가 아닌 경우 메시지 생성의 컨텍스트에 `promptMessageId` 이후의 메시지가 포함되지 않습니다.
+
+## 메시지 삭제하기
+
+`_id`(`saveMessage` 또는 `generateText`에서 반환됨) 또는 `order` / `stepOrder`로 메시지를 삭제할 수 있습니다.
+
+ID별:
+
+```ts
+await agent.deleteMessage(ctx, { messageId });
+// batch delete
+await agent.deleteMessages(ctx, { messageIds });
+```
+
+order별(start는 포함, end는 제외):
+
+```ts
+// Delete all messages with the same order as a given message:
+await agent.deleteMessageRange(ctx, {
+  threadId,
+  startOrder: message.order,
+  endOrder: message.order + 1,
+});
+// Delete all messages with order 1 or 2.
+await agent.deleteMessageRange(ctx, { threadId, startOrder: 1, endOrder: 3 });
+// Delete all messages with order 1 and stepOrder 2-4
+await agent.deleteMessageRange(ctx, {
+  threadId,
+  startOrder: 1,
+  startStepOrder: 2,
+  endOrder: 2,
+  endStepOrder: 5,
+});
+```
+
+## 기타 유틸리티:
+
+```ts
+import { ... } from "@convex-dev/agent";
+```
+
+- `serializeDataOrUrl`은 AI SDK `DataContent` 또는 `URL`을 Convex 직렬화 가능 형식으로 직렬화하는 유틸리티 함수입니다.
+- `filterOutOrphanedToolMessages`는 해당 툴 결과 메시지가 없는 툴 호출 메시지를 필터링하는 유틸리티 함수입니다.
+- `extractText`는 `ModelMessage`와 유사한 객체에서 텍스트를 추출하는 유틸리티 함수입니다.
+
+### Validators 및 types
+
+다양한 값의 유효성을 검사하고 타입을 제공하는 타입이 있습니다.
+
+```ts
+import { ... } from "@convex-dev/agent";
+```
+
+- `vMessage`는 `ModelMessage`와 유사한 객체(`role` 및 `content` 필드 등)에 대한 validator입니다.
+- `MessageDoc` 및 `vMessageDoc`는 메시지의 타입입니다(`vMessage` 타입의 `.message` 필드 포함).
+- `Thread`는 `continueThread` 또는 `createThread`에서 반환된 스레드의 타입입니다.
+- `ThreadDoc` 및 `vThreadDoc`는 스레드 메타데이터의 타입입니다.
+- `AgentComponent`는 설치된 컴포넌트의 타입입니다(예: `components.agent`).
+- `ToolCtx`는 `createTool` 툴 호출에 대한 `ctx` 타입입니다.

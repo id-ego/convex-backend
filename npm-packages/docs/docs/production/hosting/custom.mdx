@@ -1,0 +1,116 @@
+---
+title: "커스텀 도메인 및 호스팅"
+sidebar_label: "커스텀 도메인 및 호스팅"
+description:
+  "모든 도메인에서 요청을 제공하고 GitHub와 같은 정적 호스팅 제공자에서 프론트엔드를 호스팅하세요."
+sidebar_position: 100
+---
+
+## 커스텀 도메인
+
+프로덕션 Convex 배포에서 HTTP actions 또는 Convex 함수를 제공하기 위해 `api.example.com`과 같은 커스텀 도메인을 구성할 수 있습니다. 이 기능의 설정은 프로젝트의 프로젝트 설정 페이지를 통해 액세스합니다.
+
+![커스텀 도메인 추가](/screenshots/add_custom_domain.png)
+
+도메인을 입력한 후, DNS 제공자에 설정해야 할 레코드가 표시됩니다. 도메인을 구매하는 데 사용할 수 있는 인기 있는 DNS 제공자로는 Cloudflare와 GoDaddy가 있습니다. 백그라운드에서 도메인을 확인하며, 이러한 레코드가 설정되면 녹색 체크 마크가 표시됩니다.
+
+체크 마크가 표시되면 백엔드가 해당 도메인에서 트래픽을 제공하기 시작합니다. Convex가 새 SSL 인증서를 발급해야 하므로 첫 번째 요청은 최대 1분이 걸릴 수 있습니다.
+
+설정에 대해 궁금한 점이 있으시면 support@convex.dev로 문의하세요!
+
+<ProFeatureUpsell feature="커스텀 도메인" verb="require" />
+
+### 커스텀 도메인으로 호스팅하기
+
+커스텀 도메인을 사용하여 Convex 함수를 제공하려면 추가 단계가 필요합니다: `CONVEX_CLOUD_URL` 환경 변수를 재정의하세요.
+
+![시스템 환경 변수 재정의](/screenshots/override_system_env_vars.png)
+
+그런 다음 프로젝트를 재배포하세요. 이는 Vercel 또는 Netlify에서 "Redeploy"를 클릭하거나, `npx convex deploy --cmd 'npm run build'`를 직접 실행하는 것을 포함할 수 있습니다. 새로 배포된 코드는 커스텀 도메인을 통해 Convex 함수에 액세스합니다.
+
+`CONVEX_CLOUD_URL` 환경 변수는 여러 곳에서 사용됩니다:
+
+- `npx convex deploy --cmd '...'`는 프론트엔드가 웹소켓 및 HTTP 클라이언트를 연결하기 위한 `CONVEX_URL`(또는 유사한 이름)을 설정합니다
+- Convex 함수에서 `process.env.CONVEX_CLOUD_URL`로 사용할 수 있습니다
+- 파일 스토리지 URL: `ctx.storage.getUrl(id)` 및 `ctx.storage.generateUploadUrl()`
+- `npx convex function-spec --prod`로 OpenAPI 스펙 생성
+
+커스텀 HTTP Action 도메인을 위해 `CONVEX_SITE_URL` 환경 변수도 재정의할 수 있습니다.
+
+- Convex 함수에서 `process.env.CONVEX_SITE_URL`로 사용할 수 있습니다
+- 웹훅에 사용될 수 있습니다
+- Convex Auth의 `issuer`로 `auth.config.ts`에서 사용될 수 있습니다
+
+## 커스텀 호스팅
+
+백엔드 기능으로만 Convex를 사용하는 경우 모든 정적 호스팅 제공자에서 웹 앱을 호스팅할 수 있습니다. 이 가이드는 [GitHub Pages](https://pages.github.com/)를 예제로 사용합니다.
+
+서버 기능이 있는 Next.js 또는 다른 프레임워크를 사용하는 경우 [Netlify](/production/hosting/netlify.mdx) 또는 [Vercel](/production/hosting/vercel.mdx)과 같이 이를 지원하는 제공자를 사용해야 합니다. [정적 내보내기](https://nextjs.org/docs/pages/building-your-application/deploying/static-exports)를 통해 Next.js를 정적으로 호스팅할 수도 있습니다.
+
+### 빌드 구성하기
+
+먼저 작동하는 빌드 프로세스가 있는지 확인하세요.
+
+이 가이드에서는 로컬 빌드를 설정하지만, 호스팅 제공자가 원격 빌드를 지원할 수 있습니다. 예를 들어 GitHub actions를 사용하는 [Vite의 GitHub Pages 배포 가이드](https://vitejs.dev/guide/static-deploy.html#github-pages)를 참조하세요.
+
+Vite와 GitHub Pages를 예제로 사용하겠습니다.
+
+1. <JSDialectFileName name="vite.config.mts" />를 구성하세요:
+
+   ```ts title="vite.config.mts"
+   import { defineConfig } from "vite";
+   import react from "@vitejs/plugin-react";
+
+   // https://vitejs.dev/config/
+   export default defineConfig({
+     plugins: [react()],
+     // highlight-next-line
+     build: {
+       // highlight-next-line
+       outDir: "docs",
+       // highlight-next-line
+     },
+     // highlight-next-line
+     base: "/some-repo-name/",
+   });
+   ```
+
+   `build.outDir` 필드는 Vite가 프로덕션 빌드를 배치할 위치를 지정하며, GitHub Pages가 호스팅을 허용하는 디렉토리이므로 `docs`를 사용합니다.
+
+   `base` 필드는 앱을 제공할 URL 경로를 지정하며, 이 경우 `https://<some username>.github.io/<some repo name>`에서 제공됩니다.
+
+### 호스팅 제공자 구성하기
+
+GitHub Pages를 사용하면 빌드 출력을 메인 작업 브랜치에 포함할지 또는 별도의 브랜치에서 게시할지 선택할 수 있습니다.
+
+저장소의 GitHub 페이지 > _Settings_ > _Pages_를 여세요. _Build and deployment_ > _Source_ 아래에서 `Deploy from a branch`를 선택하세요.
+
+_branch_ 아래에서 브랜치를 선택하고(별도의 브랜치를 사용하려면 먼저 최소 하나의 커밋을 푸시하세요), `/docs` 폴더 이름을 선택하세요. _Save_를 클릭하세요.
+
+### Convex 및 GitHub Pages에 빌드 및 배포하기
+
+GitHub pages에 수동으로 배포하려면 다음 단계를 따르세요:
+
+1. 게시하기로 선택한 브랜치를 체크아웃하세요
+2. `npx convex deploy --cmd 'npm run build'`를 실행하고 현재 백엔드 코드를 **프로덕션** 배포로 푸시할 것인지 확인하세요
+3. 빌드 출력 변경사항을 커밋하고 GitHub에 푸시하세요.
+
+### 작동 방식
+
+먼저, `npx convex deploy`는 다음 단계를 거칩니다:
+
+1. `VITE_CONVEX_URL`(또는 유사한 이름) 환경 변수를 **프로덕션** Convex 배포로 설정합니다.
+2. `npm run build`를 통해 프론트엔드 프레임워크 빌드 프로세스를 호출합니다. 빌드 프로세스는 환경 변수를 읽고 이를 사용하여 빌드된 사이트를 **프로덕션** 배포로 가리킵니다.
+3. `convex` 디렉토리의 백엔드 코드를 **프로덕션** 배포로 배포합니다.
+
+그 후 빌드된 프론트엔드 코드를 호스팅 제공자에 배포합니다. 이 경우 Git을 사용했지만, 다른 제공자의 경우 FTP 요청과 같은 다른 방법을 사용할 수 있습니다.
+
+`deploy` 명령이 추론할 수 없는 경우 `--cmd-url-env-var-name`을 사용하여 프론트엔드 코드에서 사용하는 변수 이름을 사용자 정의할 수 있습니다:
+
+```sh
+npx convex deploy --cmd-url-env-var-name CUSTOM_CONVEX_URL --cmd 'npm run build'
+```
+
+### 인증
+
+프론트엔드가 제공되는 프로덕션 URL을 허용하도록 [인증](/auth.mdx) 제공자(Clerk, Auth0 또는 기타)를 구성해야 합니다.

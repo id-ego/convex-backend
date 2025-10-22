@@ -1,0 +1,106 @@
+---
+title: "TypeScript"
+sidebar_position: 80
+description: "Move faster with end-to-end type safety"
+pagination_next: null
+---
+
+import ArgValidation from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithValidation.ts";
+import WithSchema from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithSchema.ts";
+import WithoutArgValidation from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptWithoutValidation.ts";
+import ClientDatabaseTypes from "!!raw-loader!@site/../private-demos/snippets/src/typescriptClientDatabaseTypes.tsx";
+import ContextTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptContextTypes.ts";
+import FunctionReturnTypes from "!!raw-loader!@site/../private-demos/snippets/src/typescriptFunctionReturnTypes.ts";
+import ValidatorTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptValidatorTypes.ts";
+import SystemFieldsTypes from "!!raw-loader!@site/../private-demos/snippets/convex/typescriptSystemFieldsTypes.ts";
+
+Convex는 Convex 함수가 [TypeScript](https://www.typescriptlang.org/)로 작성될 때 엔드투엔드 타입 지원을 제공합니다.
+
+Convex 프로젝트에 점진적으로 TypeScript를 추가할 수 있습니다. 다음 단계는 점진적으로 더 나은 타입 지원을 제공합니다. 최상의 지원을 위해서는 모두 완료해야 합니다.
+
+**예제:**
+[TypeScript 및 스키마](https://github.com/get-convex/convex-demos/tree/main/typescript)
+
+## TypeScript로 Convex 함수 작성하기
+
+Convex 프로젝트의 타입 지원을 개선하는 첫 번째 단계는 `.ts` 확장자를 사용하여 TypeScript로 Convex 함수를 작성하는 것입니다.
+
+[인수 검증](/functions/validation.mdx)을 사용하는 경우, Convex는 함수 인수의 타입을 자동으로 추론합니다:
+
+<Snippet title="convex/sendMessage.ts" source={ArgValidation} />
+
+그렇지 않으면 인수 타입을 수동으로 어노테이션할 수 있습니다:
+
+<Snippet
+  title="convex/sendMessage.ts"
+  source={WithoutArgValidation}
+  highlightPatterns={["body: string"]}
+/>
+
+이는 복잡한 타입을 허용하는 [내부 함수](/functions/internal-functions.mdx)에 유용할 수 있습니다.
+
+프로젝트에 TypeScript가 설치되어 있으면 `npx convex dev` 및 `npx convex deploy`는 Convex 백엔드에 코드를 보내기 전에 Convex 함수를 타입 검사합니다.
+
+Convex 함수는 Convex 폴더의 `tsconfig.json`으로 타입 검사됩니다: 이 파일의 일부를 수정하여 타입 검사 설정을 변경하거나, 이 타입 검사를 비활성화하기 위해 이 파일을 삭제할 수 있습니다.
+
+스키마를 추가할 때까지 대부분의 데이터베이스 메서드는 `Promise<any>`의 반환 타입을 갖습니다.
+
+## 스키마 추가하기
+
+[스키마를 정의](/database/schemas.mdx)하면 데이터베이스 메서드의 타입 시그니처를 알 수 있습니다. 또한 TypeScript로 작성된 Convex 함수와 클라이언트(React, React Native, Node.js 등) 모두에서 `convex/_generated/dataModel`에서 가져온 타입을 사용할 수 있습니다.
+
+테이블의 문서 타입은 생성된 데이터 모델의 [`Doc`](/generated-api/data-model#doc) 타입을 사용하여 설명할 수 있으며, 문서에 대한 참조는 매개변수화된 [문서 ID](/database/document-ids.mdx)로 설명할 수 있습니다.
+
+<Snippet title="convex/messages.ts" source={WithSchema} />
+
+## 서버 측 도우미에 타입 어노테이션하기
+
+Convex 함수 전체에서 로직을 재사용하려면 도우미 TypeScript 함수를 정의해야 하며, 이는 데이터베이스, 인증 및 기타 Convex 기능에 접근하기 위해 제공된 컨텍스트의 일부가 필요할 수 있습니다.
+
+Convex는 스키마 및 선언된 Convex 함수를 기반으로 데이터베이스의 문서 및 ID에 해당하는 `Doc` 및 `Id` 타입과 `QueryCtx`, `MutationCtx`, `ActionCtx` 타입을 생성합니다:
+
+<Snippet title="convex/helpers.ts" source={ContextTypes} />
+
+### 검증기에서 타입 추론하기
+
+검증기는 [인수 검증](/functions/validation.mdx)과 [스키마 검증](/database/schemas.mdx) 사이에서 재사용할 수 있습니다. 제공된 [`Infer`](/api/modules/values#infer) 타입을 사용하여 검증기에 해당하는 TypeScript 타입을 얻을 수 있습니다:
+
+<Snippet title="convex/helpers.ts" source={ValidatorTypes} />
+
+### 시스템 필드가 없는 문서 타입
+
+Convex의 모든 문서에는 내장 `_id` 및 `_creationTime` 필드가 포함되며, 생성된 `Doc` 타입도 마찬가지입니다. 문서를 생성하거나 업데이트할 때 시스템 필드가 없는 타입을 사용할 수 있습니다. Convex는 이 목적을 위해 [`WithoutSystemFields`](/api/modules/server#withoutsystemfields)를 제공합니다:
+
+<Snippet title="convex/helpers.ts" source={SystemFieldsTypes} />
+
+## TypeScript로 프론트엔드 코드 작성하기
+
+[`useQuery`](/api/modules/react#usequery) 및 [`useMutation`](/api/modules/react#usemutation)과 같은 React 훅을 포함한 모든 Convex JavaScript 클라이언트는 인수와 반환 값이 해당 Convex 함수 선언과 일치하도록 보장하여 엔드투엔드 타입 안전성을 제공합니다. React의 경우, TypeScript를 설치하고 구성하여 `.jsx` 파일 대신 `.tsx` 파일로 React 컴포넌트를 작성할 수 있습니다.
+
+Convex와 TypeScript를 시작하려면 [React](/quickstart/react.mdx) 또는 [Next.js](/quickstart/nextjs.mdx) 빠른 시작을 따르세요.
+
+### 클라이언트 측 코드에 타입 어노테이션하기
+
+함수 호출 결과를 클라이언트 코드베이스에 전달하려면 백엔드처럼 생성된 `Doc` 및 `Id` 타입을 사용할 수 있습니다:
+
+<Snippet title="src/App.tsx" source={ClientDatabaseTypes} />
+
+`Doc` 및 `Id`를 포함하는 백엔드 코드베이스 내부에 사용자 정의 타입을 선언하고 클라이언트 측 코드에서 가져올 수도 있습니다.
+
+검증기를 통해 추론된 `WithoutSystemFields` 및 모든 타입을 `Infer`를 통해 사용할 수도 있습니다.
+
+#### 추론된 함수 반환 타입 사용하기
+
+때때로 백엔드 함수가 반환하는 것을 기반으로 클라이언트의 타입에 어노테이션을 달고 싶을 수 있습니다. 타입을 수동으로 선언하는 것(백엔드 또는 프론트엔드에서) 외에도, 함수 참조와 함께 일반 `FunctionReturnType` 및 `UsePaginatedQueryReturnType` 타입을 사용할 수 있습니다:
+
+<Snippet title="src/Components.tsx" source={FunctionReturnTypes} />
+
+## `string`을 유효한 문서 ID로 변환하기
+
+[ID 직렬화](/database/document-ids.mdx#serializing-ids)를 참조하세요.
+
+## 필수 TypeScript 버전
+
+Convex는 TypeScript 버전 [5.0.3](https://www.npmjs.com/package/typescript/v/5.0.3) 이상이 필요합니다.
+
+<StackPosts query="types" />

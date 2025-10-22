@@ -1,0 +1,181 @@
+---
+title: "인증 디버깅"
+sidebar_label: "디버깅"
+sidebar_position: 130
+description: "Convex에서 인증 문제 해결"
+---
+
+# 인증 디버깅
+
+인증 가이드 중 하나를 따랐지만 무언가 작동하지 않습니다.
+모든 단계를 따랐고 올바른 시크릿을 사용했는지 다시 확인했지만 여전히 막혀 있습니다.
+
+## 자주 발생하는 문제
+
+### 쿼리에서 `ctx.auth.getUserIdentity()`가 `null`을 반환합니다
+
+이는 클라이언트가 인증될 때까지 기다리지 않고 React에서 `useQuery`를 통해 쿼리를 구독할 때 자주 발생합니다. 사용자가 이전에 로그인했더라도 클라이언트가 Convex 백엔드로 인증하는 데 시간이 걸립니다. 따라서 페이지 로드 시 쿼리 내에서 호출된 `ctx.auth.getUserIdentity()`는 `null`을 반환합니다.
+
+이를 처리하려면 다음 중 하나를 수행할 수 있습니다:
+
+1. `convex/react`의 `Authenticated` 컴포넌트를 사용하여 `useQuery` 호출을 포함하는 컴포넌트를 래핑합니다([Clerk 가이드](/auth/clerk.mdx#get-started)의 마지막 두 단계 참조)
+2. 또는 쿼리에서 `null` 또는 다른 "센티널" 값을 반환하고 클라이언트에서 처리합니다
+
+[Next.js 서버 렌더링](/client/nextjs/app-router/server-rendering.mdx)을 위해 `fetchQuery`를 사용하는 경우 [여기](/client/nextjs/app-router/server-rendering.mdx#server-side-authentication)에 문서화된 대로 JWT 토큰을 명시적으로 전달하고 있는지 확인하세요.
+
+이것이 도움이 되지 않았다면 아래 단계를 따라 문제를 해결하세요.
+
+## 1단계: 백엔드에서 인증이 작동하는지 확인
+
+1. 함수(쿼리, 뮤테이션, 액션 또는 HTTP 액션)의 _시작 부분_에 다음 코드를 추가합니다:
+
+```ts
+console.log("server identity", await ctx.auth.getUserIdentity());
+```
+
+2. 그런 다음 Convex와 통신하는 데 사용하는 클라이언트에서 이 함수를 호출합니다.
+
+3. [대시보드의 로그 페이지](https://dashboard.convex.dev/deployment/logs)를 엽니다.
+
+4. 로그 페이지에 무엇이 표시됩니까?
+
+   **답변: 아무것도 보이지 않습니다**:
+
+   - 잠재적 원인: 올바른 대시보드가 열려 있지 않습니다. _Settings_ > _URL and Deploy Key_ 페이지의 Deployment URL이 클라이언트 구성 방식과 일치하는지 확인하세요.
+   - 잠재적 원인: 클라이언트가 Convex에 연결되어 있지 않습니다. 클라이언트 로그(브라우저 로그)에서 오류를 확인하세요. 페이지를 새로 고침하거나 클라이언트를 다시 시작하세요.
+   - 잠재적 원인: 코드가 푸시되지 않았습니다. 개발 배포의 경우 `npx convex dev`가 실행 중인지 확인하세요. 프로덕션 배포의 경우 `npx convex deploy`를 통해 성공적으로 푸시했는지 확인하세요. 대시보드의 _Functions_ 페이지로 이동하여 표시된 코드에 추가한 `console.log` 라인이 포함되어 있는지 확인하세요.
+
+   원인을 해결하면 로그가 나타나야 합니다.
+
+   **답변: `'server identity' null`이 포함된 로그가 표시됩니다**:
+
+   - 잠재적 원인: 클라이언트가 인증 토큰을 제공하지 않습니다.
+   - 잠재적 원인: 배포가 잘못 구성되었습니다.
+   - 잠재적 원인: 클라이언트가 잘못 구성되었습니다.
+
+   [2단계](#step-2-check-whether-authentication-works-on-the-frontend)로 진행하세요.
+
+   **답변: `'server identity' { tokenIdentifier: '... } `가 포함된 로그가 표시됩니다**
+
+   좋습니다, 모두 설정되었습니다!
+
+## 2단계: 프론트엔드에서 인증이 작동하는지 확인
+
+사용하는 클라이언트에 관계없이 인증이 작동하려면 백엔드에 JWT 토큰을 전달해야 합니다.
+
+클라이언트가 백엔드에 토큰을 전달하고 있는지 확인하는 가장 확실한 방법은 그들 사이의 트래픽을 검사하는 것입니다.
+
+1. 웹 브라우저에서 클라이언트를 사용하는 경우 브라우저의 개발자 도구에서 _Network_ 탭을 엽니다.
+
+2. 토큰 확인
+
+   - Websocket 기반 클라이언트(`ConvexReactClient` 및 `ConvexClient`)의 경우 `sync` 이름으로 필터링하고 트래픽 유형으로 `WS`를 선택합니다. `sync` 항목을 확인합니다. 클라이언트가 초기화된 후(일반적으로 페이지 로드 후) `type: "Authenticate"`가 있는 메시지(_Messages_ 탭 확인)를 보내며 `value`가 인증 토큰이 됩니다.
+
+     <p style={{ textAlign: "center" }}>
+       <img
+         src="/screenshots/auth-ws.png"
+         alt="Websocket 메시지를 검사하는 Network 탭"
+         width={500}
+       />
+     </p>
+
+   - HTTP 기반 클라이언트(`ConvexHTTPClient` 및 [HTTP API](/http-api/index.md))의 경우 트래픽 유형으로 `Fetch/XHR`을 선택합니다. 각 함수 호출에 대한 개별 네트워크 요청이 표시되어야 하며, 인증 토큰 뒤에 `Bearer `가 있는 `Authorization` 헤더가 있어야 합니다.
+
+     <p style={{ textAlign: "center" }}>
+       <img
+         src="/screenshots/auth-http.png"
+         alt="HTTP 헤더를 검사하는 Network 탭"
+         width={480}
+       />
+     </p>
+
+3. 트래픽에서 인증 토큰이 보입니까?
+
+   **답변: 아니요**:
+
+   - 잠재적 원인: Convex 클라이언트가 JWT 토큰을 가져오도록 구성되지 않았습니다. `ConvexReactClient`와 함께 `ConvexProviderWithClerk`/`ConvexProviderWithAuth0`/`ConvexProviderWithAuth`를 사용하지 않거나 `ConvexHTTPClient` 또는 `ConvexClient`에서 `setAuth`를 호출하는 것을 잊었습니다.
+   - 잠재적 원인: 로그인하지 않아서 토큰이 `null` 또는 `undefined`이고 `ConvexReactClient`가 인증을 완전히 건너뛰었습니다. 사용 중인 인증 공급자에서 `console.log`로 토큰을 확인하여 로그인했는지 확인하세요:
+
+     - Clerk:
+
+       ```tsx
+       // import { useAuth } from "@clerk/nextjs"; // Next.js용
+       import { useAuth } from "@clerk/clerk-react";
+
+       const { getToken } = useAuth();
+       console.log(getToken({ template: "convex" }));
+       ```
+
+     - Auth0:
+
+       ```tsx
+       import { useAuth0 } from "@auth0/auth0-react";
+
+       const { getAccessTokenSilently } = useAuth0();
+       const response = await getAccessTokenSilently({
+         detailedResponse: true,
+       });
+       const token = response.id_token;
+       console.log(token);
+       ```
+
+     - 사용자 정의: `useAuthFromProviderX`를 구현한 방법
+
+     토큰처럼 보이는 긴 문자열이 표시되지 않으면 인증 공급자에서 브라우저 로그를 확인하여 오류가 있는지 확인하세요. 없다면 Network 탭을 확인하여 공급자에 대한 요청이 실패하는지 확인하세요. 인증 공급자가 잘못 구성되었을 수 있습니다. 인증 공급자 구성(해당 React 공급자 또는 클라이언트에 대한 인증 공급자 구성 방법)을 다시 확인하세요. 브라우저에서 쿠키를 지워보세요(개발 도구 _Application_ > _Cookies_ > _Clear all cookies_ 버튼).
+
+   **답변: 예, JWT처럼 보이는 긴 문자열이 보입니다**:
+
+   좋습니다, 전체 토큰을 복사하세요(토큰 안에 `.`이 있을 수 있으므로 일부만 복사하지 않도록 하세요).
+
+4. https://jwt.io/를 열고 스크롤하여 페이지 왼쪽의 Encoded 텍스트 영역에 토큰을 붙여넣으세요. 오른쪽에 다음이 표시되어야 합니다:
+
+   - _HEADER_에 `"typ": "JWT"`
+   - _PAYLOAD_에 최소한 `"aud"`, `"iss"` 및 `"sub"` 필드가 있는 유효한 JSON. 페이로드에 횡설수설이 보이면 토큰을 올바르게 복사하지 않았거나 유효한 JWT 토큰이 아닙니다.
+
+   유효한 JWT 토큰이 보이면 [1단계](#step-1-check-whether-authentication-works-on-the-backend)를 반복하세요. 여전히 올바른 신원이 표시되지 않으면 3단계로 진행하세요.
+
+## 3단계: 백엔드 구성이 프론트엔드 구성과 일치하는지 확인
+
+프론트엔드에 유효한 JWT 토큰이 있고 백엔드로 전달되고 있지만 백엔드에서 유효성을 검사하지 않습니다.
+
+1. 대시보드에서 _Settings_ > _Authentication_을 엽니다. 무엇이 보입니까?
+
+   **답변: `This deployment has no configured authentication providers`가 표시됩니다**:
+
+   - 원인: `convex` 디렉토리에 `auth.config.ts`(또는 `auth.config.js`) 파일이 없거나 코드를 푸시하지 않았습니다. 인증 가이드를 따라 유효한 인증 구성 파일을 생성하세요. 개발 배포의 경우 `npx convex dev`가 실행 중인지 확인하세요. 프로덕션 배포의 경우 `npx convex deploy`를 통해 성공적으로 푸시했는지 확인하세요.
+
+   **답변: 하나 이상의 _Domain_ 및 _Application ID_ 쌍이 표시됩니다**:
+
+   좋습니다, JWT 토큰과 일치하는지 확인하겠습니다.
+
+2. https://jwt.io/의 JWT 토큰 페이로드에서 `iss` 필드를 확인하세요. _Authentication_ 페이지의 _Domain_과 일치합니까?
+
+   **답변: 아니요, Convex 대시보드에 `iss` URL이 표시되지 않습니다**:
+
+   - 잠재적 원인: <JSDialectFileName name="auth.config.ts" />의 `domain` 또는 거기에 사용된 환경 변수에 잘못된 값을 복사했습니다. 인증 가이드로 돌아가서 인증 공급자에서 올바른 URL을 가져왔는지 확인하세요.
+   - 잠재적 원인: 클라이언트가 잘못 구성되었습니다:
+
+     - Clerk: 잘못된 `publishableKey`가 구성되었습니다. 키는 <JSDialectFileName name="auth.config.ts" />를 구성하는 데 사용한 Clerk 인스턴스에 속해야 합니다.
+
+       - 또한 Clerk의 JWT 토큰이 `convex`라고 불리는지 확인하세요. `ConvexProviderWithClerk`가 토큰을 가져오는 데 사용하는 이름입니다!
+
+     - Auth0: 잘못된 `domain`이 구성되었습니다(클라이언트에서!). 도메인은 <JSDialectFileName name="auth.config.ts" />를 구성하는 데 사용한 Auth0 인스턴스에 속해야 합니다.
+     - 사용자 정의: 클라이언트가 <JSDialectFileName name="auth.config.ts" />와 일치하도록 올바르게 구성되었는지 확인하세요.
+
+   **답변: 예, `iss` URL이 표시됩니다**:
+
+   좋습니다, 계속 진행하겠습니다.
+
+3. https://jwt.io/의 JWT 토큰 페이로드에서 `aud` 필드를 확인하세요. _Authentication_ 페이지의 올바른 _Domain_ 아래 _Application ID_와 일치합니까?
+
+   **답변: 아니요, _Application ID_ 필드에 `aud` 값이 표시되지 않습니다**:
+
+   - 잠재적 원인: <JSDialectFileName name="auth.config.ts" />의 `applicationID` 또는 거기에 사용된 환경 변수에 잘못된 값을 복사했습니다. 인증 가이드로 돌아가서 인증 공급자에서 올바른 값을 가져왔는지 확인하세요.
+   - 잠재적 원인: 클라이언트가 잘못 구성되었습니다:
+     - Clerk: 잘못된 `publishableKey`가 구성되었습니다. 키는 <JSDialectFileName name="auth.config.ts" />를 구성하는 데 사용한 Clerk 인스턴스에 속해야 합니다.
+     - Auth0: 잘못된 `clientId`가 구성되었습니다. <JSDialectFileName name="auth.config.ts" />를 구성하는 데 사용한 Auth0 인스턴스에 대한 올바른 `clientId`를 사용하고 있는지 확인하세요.
+     - 사용자 정의: 클라이언트가 <JSDialectFileName name="auth.config.ts" />와 일치하도록 올바르게 구성되었는지 확인하세요.
+
+   **답변: 예, _Application ID_ 필드에 `aud` 값이 표시됩니다**:
+
+   좋습니다, [1단계](#step-1-check-whether-authentication-works-on-the-backend)를 반복하면 모두 설정됩니다!

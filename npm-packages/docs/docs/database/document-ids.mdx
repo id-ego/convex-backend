@@ -1,0 +1,104 @@
+---
+title: "문서 ID"
+sidebar_position: 10
+description: "ID를 사용하여 복잡한 관계형 데이터 모델 만들기"
+---
+
+import SerializeExample from "!!raw-loader!@site/../private-demos/snippets/convex/tasks.ts";
+import SerializeCall from "!!raw-loader!@site/../private-demos/snippets/src/documentIdsSerializeCall.tsx";
+
+**예제:**
+[관계형 데이터 모델링](https://github.com/get-convex/convex-demos/tree/main/relational-data-modeling)
+
+Convex의 모든 문서에는 시스템에서 자동으로 생성하는 전역적으로 고유한 문자열 _문서 ID_가 있습니다.
+
+```ts
+const userId = await ctx.db.insert("users", { name: "Michael Jordan" });
+```
+
+이 ID를 사용하여 `get` 메서드를 통해 단일 문서를 효율적으로 읽을 수 있습니다:
+
+```ts
+const retrievedUser = await ctx.db.get(userId);
+```
+
+[`_id` 필드](/database/types.md#system-fields)에서 문서의 ID에 액세스할 수 있습니다:
+
+```ts
+const userId = retrievedUser._id;
+```
+
+또한 동일한 ID를 사용하여 해당 문서를 제자리에서 업데이트할 수 있습니다:
+
+```ts
+await ctx.db.patch(userId, { name: "Steph Curry" });
+```
+
+Convex는 테이블 이름으로 매개변수화된 [스키마](/database/schemas.mdx)를 기반으로 [`Id`](/generated-api/data-model#id) TypeScript 타입을 생성합니다:
+
+```typescript
+import { Id } from "./_generated/dataModel";
+
+const userId: Id<"users"> = user._id;
+```
+
+ID는 런타임에 문자열이지만, [`Id`](/generated-api/data-model#id) 타입을 사용하여 컴파일 타임에 다른 문자열과 ID를 구별할 수 있습니다.
+
+## 참조 및 관계
+
+Convex에서는 문서의 `Id`를 다른 문서에 포함하기만 하면 문서를 참조할 수 있습니다:
+
+```ts
+await ctx.db.insert("books", {
+  title,
+  ownerId: user._id,
+});
+```
+
+`ctx.db.get`으로 참조를 따라갈 수 있습니다:
+
+```ts
+const user = await ctx.db.get(book.ownerId);
+```
+
+그리고 참조가 있는 [문서를 쿼리](/database/reading-data/reading-data.mdx)할 수 있습니다:
+
+```ts
+const myBooks = await ctx.db
+  .query("books")
+  .filter((q) => q.eq(q.field("ownerId"), user._id))
+  .collect();
+```
+
+`Id`를 참조로 사용하면 복잡한 데이터 모델을 구축할 수 있습니다.
+
+## 깊게 중첩된 문서 vs. 관계 간의 트레이드오프
+
+Convex가 중첩된 객체와 배열을 지원하는 것은 유용하지만, 문서를 상대적으로 작은 크기로 유지해야 합니다. 실제로 배열을 5-10개 요소 이하로 제한하고 깊게 중첩된 객체를 피하는 것이 좋습니다.
+
+대신 별도의 테이블, 문서 및 참조를 활용하여 데이터를 구조화하십시오. 이렇게 하면 프로젝트가 성장함에 따라 더 나은 유지 관리성과 성능을 얻을 수 있습니다.
+
+## ID 직렬화
+
+ID는 문자열이므로 URL에 쉽게 삽입하거나 Convex 외부에 저장할 수 있습니다.
+
+외부 소스(예: URL)의 ID 문자열을 Convex 함수에 전달하고 해당 객체를 가져올 수 있습니다. 클라이언트에서 TypeScript를 사용하는 경우 문자열을 `Id` 타입으로 캐스팅할 수 있습니다:
+
+<Snippet
+  title="src/App.tsx"
+  source={SerializeCall}
+  highlightPatterns={[" as "]}
+/>
+
+이 ID는 외부 소스에서 나오므로 인수 검증기 또는
+[`ctx.db.normalizeId`](/api/interfaces/server.GenericDatabaseReader#normalizeid)를 사용하여
+객체를 반환하기 전에 ID가 예상 테이블에 속하는지 확인하십시오.
+
+<TSAndJSSnippet
+  title="convex/tasks.ts"
+  sourceTS={SerializeExample}
+  sourceJS={SerializeExample}
+  highlightPatterns={["v.id"]}
+/>
+
+<StackPosts query="document IDs" />

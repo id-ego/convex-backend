@@ -1,0 +1,51 @@
+---
+title: "함수에서의 인증"
+sidebar_label: "함수"
+sidebar_position: 100
+description: "Convex 함수에서 사용자 인증 정보에 액세스"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctions.ts";
+import FieldsTS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFields.ts";
+import FieldsJS from "!!raw-loader!@site/../private-demos/snippets/convex/authFunctionsFieldsJS.js";
+import Fetch from "!!raw-loader!@site/../private-demos/snippets/src/httpAuthCall.ts";
+
+_Convex Auth를 사용하는 경우 [권한 부여 문서](https://labs.convex.dev/auth/authz#use-authentication-state-in-backend-functions)를 참조하세요._
+
+Convex [함수](/functions.mdx) 내에서 [`QueryCtx`](/generated-api/server#queryctx), [`MutationCtx`](/generated-api/server#mutationctx) 또는 [`ActionCtx`](/generated-api/server#actionctx) 객체의 [`auth`](/api/interfaces/server.Auth) 속성을 사용하여 현재 로그인한 사용자에 대한 정보에 액세스할 수 있습니다:
+
+<TSAndJSSnippet
+  sourceTS={Example}
+  sourceJS={Example}
+  title="convex/myFunctions.ts"
+/>
+
+## 사용자 신원 필드
+
+`getUserIdentity`가 반환하는 [UserIdentity](/api/interfaces/server.UserIdentity) 객체는 `tokenIdentifier`, `subject`, `issuer` 필드를 가지고 있음이 보장됩니다. 포함될 다른 필드는 사용된 ID 공급자와 JWT 토큰 및 [OpenID 스코프](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims) 구성에 따라 달라집니다.
+
+`tokenIdentifier`는 여러 공급자를 사용할 때도 고유성을 보장하기 위해 `subject`와 `issuer`의 조합입니다.
+
+Clerk 또는 Auth0와의 통합 중 하나를 따랐다면 최소한 다음 필드가 존재합니다: `familyName`, `givenName`, `nickname`, `pictureUrl`, `updatedAt`, `email`, `emailVerified`. [OpenID 문서](https://openid.net/specs/openid-connect-core-1_0.html#StandardClaims)에서 해당 표준 정의를 참조하세요.
+
+<TSAndJSSnippet
+  sourceTS={FieldsTS}
+  sourceJS={FieldsJS}
+  title="convex/myFunctions.ts"
+/>
+
+### Clerk 클레임 구성
+
+Clerk를 사용하는 경우 `getUserIdentity`가 반환하는 필드는 JWT 템플릿의 _Claims_ 구성에 의해 결정됩니다. 사용자 정의 클레임을 설정한 경우 `getUserIdentity`에서도 반환됩니다.
+
+### 사용자 정의 JWT 인증
+
+OpenID 표준 필드 대신 [사용자 정의 JWT 인증](/auth/advanced/custom-jwt.mdx)을 사용하는 경우 각 중첩된 필드를 `identity["properties.email"]`과 같은 점을 포함하는 문자열 필드 이름으로 사용할 수 있습니다.
+
+## HTTP 액션
+
+HTTP 액션 [`ctx.auth.getUserIdentity()`](/api/interfaces/server.Auth#getuseridentity)에서도 사용자 신원에 액세스할 수 있습니다. JWT 토큰을 포함하는 `Authorization` 헤더로 엔드포인트를 호출하면 됩니다:
+
+<TSAndJSSnippet sourceTS={Fetch} sourceJS={Fetch} title="myPage.ts" />
+
+<StackPosts query="authentication functions" />

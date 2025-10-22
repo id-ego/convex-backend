@@ -1,0 +1,61 @@
+---
+title: "Using GitHub Copilot with Convex"
+sidebar_position: 200
+sidebar_label: Using GitHub Copilot
+description: "Tips and best practices for using GitHub Copilot with Convex"
+slug: "using-github-copilot"
+---
+
+VS Code에 내장된 AI인 [GitHub Copilot](https://github.com/features/copilot)은 Convex로 구축된 앱을 쉽게 작성하고 유지 관리할 수 있게 해줍니다. Convex에서 최상의 결과를 얻기 위해 GitHub Copilot을 설정하는 방법을 살펴보겠습니다.
+
+## Convex Instructions 추가
+
+다음
+[instructions](https://code.visualstudio.com/docs/copilot/copilot-customization#_instruction-files)
+파일을 프로젝트의 `.github/instructions` 디렉토리에 추가하면 TypeScript 또는 JavaScript 파일을 작업할 때 자동으로 포함됩니다:
+
+- [convex.instructions.md](https://convex.link/convex_github_copilot_instructions)
+
+![Showing Where to Put GitHub Copilot Instructions](/img/showing-where-to-put-convex-instructions.png)
+
+instructions 파일이 자동으로 컨텍스트에 포함되지 않도록 하려면 에디터에서 파일을 열고 상단의 `applyTo` 필드를 변경하세요. instructions 파일에 대한 자세한 내용은 여기를 참조하세요:
+https://code.visualstudio.com/docs/copilot/copilot-customization#_use-instructionsmd-files
+
+저희는 엄격한 평가를 통해 Convex용 규칙의 품질을 지속적으로 개선하고 있습니다.
+[평가 저장소에 기여](https://github.com/get-convex/convex-evals)하여 도움을 주실 수 있습니다.
+
+## Convex MCP Server 설정
+
+Convex CLI에는 내장된
+[Convex Model Context Protocol](/ai/convex-mcp-server.mdx) (MCP) 서버가 함께 제공됩니다. Convex MCP 서버는 AI 코딩 에이전트에게 Convex 배포에 대한 액세스 권한을 부여하여 프로젝트를 쿼리하고 최적화할 수 있게 합니다.
+
+[VS Code의 MCP](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)를 시작하려면 `.vscode/mcp.json` 파일을 생성하고 다음을 추가하세요:
+
+```json
+{
+  "servers": {
+    "convex-mcp": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "convex@latest", "mcp", "start"]
+    }
+  }
+}
+```
+
+완료되면 MCP 서버가 시작되는 데 몇 초가 걸리며 코드렌즈에 Convex 도구가 표시됩니다:
+
+![Convex Tool in Codelens](/img/convex-tool-in-codelens.png)
+
+그리고 채팅에서 모델이 액세스할 수 있는 도구 선택에서:
+
+![Convex Tool in Chat](/img/convex-tools-in-chat.png)
+
+이제 다음과 같은 질문을 시작하세요:
+
+- convex 스키마를 평가하고 개선 사항을 제안해주세요
+- 이 앱의 공개 엔드포인트는 무엇인가요?
+- `my_convex_function` 쿼리를 실행해주세요
+
+모든 프로젝트에서 전역적으로 MCP 서버를 사용하려면 사용자 설정에 추가할 수 있습니다. 자세한 정보는 다음 문서를 참조하세요:
+https://code.visualstudio.com/docs/copilot/chat/mcp-servers#_add-an-mcp-server-to-your-user-settings

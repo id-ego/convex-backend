@@ -1,0 +1,158 @@
+---
+title: "번들링"
+sidebar_position: 90
+description: "Convex가 함수 코드를 번들링하고 최적화하는 방법"
+---
+
+번들링은 [함수](/functions.mdx) 및 해당 종속성의 JS/TS 소스 코드를 수집, 최적화 및 변환하는 프로세스입니다. 개발 중 및 배포 시 코드는 Convex [런타임](/functions/runtimes.mdx)이 직접적으로 효율적으로 실행할 수 있는 형식으로 변환됩니다.
+
+Convex는 현재 모든 종속성을 자동으로 번들링하지만 Node.js 런타임의 경우 [외부 패키지](#external-packages) 구성을 통해 특정 패키지의 번들링을 비활성화할 수 있습니다.
+
+## Convex를 위한 번들링
+
+`npx convex dev` 또는 `npx convex deploy`를 통해 코드를 푸시하면 Convex CLI는 [esbuild](https://esbuild.github.io/)를 사용하여 `convex/` 폴더를 순회하고 함수와 사용된 모든 종속성을 소스 코드 번들로 번들링합니다. 그런 다음 이 번들이 서버로 전송됩니다.
+
+번들링 덕분에 최신 ECMAScript 모듈(ESM) 또는 이전 CommonJS(CJS) 구문을 모두 사용하여 코드를 작성할 수 있습니다.
+
+<Details summary="ESM vs. CJS">
+    ESM
+    - 브라우저 JavaScript의 표준입니다
+    - 전역 범위에서 `import` 및 `export` **키워드**(함수가 아님)를 통한 정적 import를 사용합니다
+    - 비동기 `import` 함수를 통한 동적 import도 지원합니다
+
+    CJS
+    - 이전에는 Node.js의 표준 모듈 시스템이었습니다
+    - 외부 모듈을 가져오기 위해 `require` 및 비동기 `import` 함수를 통한 동적 import에 의존합니다
+    - export를 위해 `module.exports` 객체를 사용합니다
+
+</Details>
+
+## 번들링 제한사항
+
+번들링의 특성상 몇 가지 제한사항이 있습니다.
+
+### 코드 크기 제한
+
+`convex/` 폴더에 있는 번들링된 함수 코드의 총 크기는 **32MiB(~33.55MB)로 제한됩니다**. 다른 플랫폼 제한사항은 [여기](/production/state/limits.mdx)에서 확인할 수 있습니다.
+
+이 제한 자체는 단순 소스 코드로서는 상당히 높지만, 특정 종속성은 효과적으로 [tree-shakeable](https://webpack.js.org/guides/tree-shaking/)하지 않은 경우(예: [aws-sdk](https://www.npmjs.com/package/aws-sdk) 또는 [snowflake-sdk](https://www.npmjs.com/package/snowflake-sdk)) 번들 크기가 이 제한을 빠르게 초과할 수 있습니다.
+
+번들 크기를 디버그하려면 다음 단계를 따르세요:
+
+<StepByStep>
+  <Step title="최신 버전의 convex를 사용하고 있는지 확인하세요">
+    ```sh
+    npm install convex@latest
+    ```
+  </Step>
+  <Step title="번들 생성">
+   코드를 푸시하지 않고 디버깅 목적으로만 번들을 생성합니다.
+
+    ```sh
+    npx convex dev --once --debug-bundle-path /tmp/myBundle
+    ```
+
+  </Step>
+  <Step title="번들 시각화">
+  [source-map-explorer](https://github.com/danvk/source-map-explorer/tree/master)를 사용하여 번들을 시각화합니다.
+
+    ```sh
+    npx source-map-explorer /tmp/myBundle/**/*.js
+    ```
+
+  </Step>
+</StepByStep>
+
+Convex 런타임용으로 번들링된 코드는 `isolate` 디렉토리에 있고 node 액션용으로 번들링된 코드는 `node` 디렉토리에 있습니다.
+
+대용량 node 종속성은 [외부 패키지](/functions/bundling.mdx#external-packages)로 표시하여 번들에서 제거할 수 있습니다.
+
+### 동적 종속성
+
+일부 라이브러리는 종속성을 항상 포함하지 않도록 동적 import(`import`/`require` 호출을 통한)에 의존합니다. 이러한 import는 [기본 Convex 런타임](/functions/runtimes.mdx#default-convex-runtime)에서 지원되지 않으며 런타임에 오류를 발생시킵니다.
+
+또한 일부 라이브러리는 esbuild로 번들링할 수 없는 로컬 파일에 의존합니다. 번들링이 사용되는 경우, 런타임 선택과 관계없이 이러한 import는 Convex에서 항상 실패합니다.
+
+<Details summary="동적 종속성이 있는 라이브러리의 예">
+
+동적 종속성에 의존하는 패키지의 다음 예를 고려해 보세요:
+
+- [langchain](https://www.npmjs.com/package/langchain) - 동적으로 import할 수 있는 피어 종속성의 존재에 의존합니다. 이러한 종속성은 정적으로 `import`되지 않으므로 `esbuild`로 번들링되지 않습니다.
+- [sharp](https://www.npmjs.com/package/sharp) - 이미지 처리 작업을 위한 `libvips` 바이너리의 존재에 의존합니다.
+- [pdf-parse](https://www.npmjs.com/package/pdf-parse) - 테스트 모드에서 실행 중인지 감지하기 위해 `require()`로 동적으로 import되는 것에 의존합니다. 번들링은 이러한 `require()` 호출을 제거하여 `pdf-parse`가 테스트 모드에서 실행 중이라고 가정하게 만들 수 있습니다.
+- [tiktoken](https://www.npmjs.com/package/tiktoken) - 로컬 WASM 파일에 의존합니다.
+
+</Details>
+
+## 외부 패키지
+
+위의 번들링 제한사항에 대한 해결 방법으로 Convex는 탈출구를 제공합니다: **외부 패키지**. 이 기능은 현재 Convex의 [Node.js 런타임](/functions/runtimes.mdx#nodejs-runtime)에서만 사용할 수 있습니다.
+
+외부 패키지는 [`esbuild`의 종속성을 외부로 표시하는 기능](https://esbuild.github.io/api/#external)을 사용합니다. 이는 `esbuild`에게 외부 종속성을 전혀 번들링하지 말고 `require()` 또는 `import()`를 사용하는 동적 런타임 import로 그대로 두도록 지시합니다. 따라서 Convex 모듈은 실행 시 기본 시스템에서 해당 종속성을 사용할 수 있도록 의존합니다.
+
+### 서버에 패키지 설치
+
+외부로 표시된 패키지는 처음 사용하는 코드를 푸시할 때 [npm](https://www.npmjs.com/)에서 설치됩니다. 설치된 버전은 로컬 시스템의 `node_modules` 폴더에 설치된 버전과 일치합니다.
+
+이는 외부 패키지를 처음 푸시할 때 지연 시간 페널티가 발생하지만 패키지는 캐시되며 이 설치 단계는 외부 패키지가 변경되는 경우에만 다시 실행하면 됩니다. 캐시되면 푸시 중에 서버로 전송되는 소스 코드 번들이 더 작아지기 때문에 실제로 푸시가 더 빨라질 수 있습니다!
+
+### 외부 패키지 지정
+
+아직 존재하지 않는 경우 `package.json`과 동일한 디렉토리에 [`convex.json`](/production/project-configuration.mdx#convexjson) 파일을 만듭니다. Node 액션 내에서 사용되는 모든 종속성을 외부로 표시하려면 `node.externalPackages` 필드를 `["*"]`로 설정합니다:
+
+```json
+{
+  "node": {
+    "externalPackages": ["*"]
+  }
+}
+```
+
+또는 외부로 표시할 패키지를 명시적으로 지정할 수 있습니다:
+
+```json
+{
+  "node": {
+    "externalPackages": ["aws-sdk", "sharp"]
+  }
+}
+```
+
+패키지 식별자는 [Node.js 액션](/functions/actions.mdx#choosing-the-runtime-use-node)에서 `import`/`require`에 사용되는 문자열과 일치해야 합니다.
+
+### 외부 패키지 문제 해결
+
+#### 잘못된 패키지 버전
+
+Convex CLI는 로컬 `node_modules` 디렉토리 내에서 외부 패키지를 검색합니다. 따라서 `package.json`에서 패키지 버전을 변경해도 로컬 `node_modules` 폴더에 설치된 패키지 버전을 업데이트할 때까지(예: `npm install` 실행) 서버에서 사용되는 버전에 영향을 주지 않습니다.
+
+#### Import 오류
+
+종속성을 외부로 표시하면 다음과 같은 오류가 발생할 수 있습니다:
+
+> 요청된 모듈 "some-module"은 CommonJs 모듈이며 모든 module.exports를 명명된 export로 지원하지 않을 수 있습니다. CommonJs 모듈은 항상 기본 export를 통해 import할 수 있습니다.
+
+이 경우 다음과 같이 이 모듈에 대한 import를 다시 작성해야 합니다:
+
+```ts
+// ❌ old
+import { Foo } from "some-module";
+
+// ✅ new
+import SomeModule from "some-module";
+const { Foo } = SomeModule;
+```
+
+### 제한사항
+
+소스 코드 번들과 외부 패키지의 총 크기는 다음을 초과할 수 없습니다:
+
+- 압축된 45MB
+- 압축 해제된 240MB
+
+현재 작동하지 않는 것으로 알려진 패키지:
+
+- [Puppeteer](https://www.npmjs.com/package/puppeteer) - 브라우저 바이너리 설치가 크기 제한을 초과합니다
+- [@ffmpeg.wasm](https://www.npmjs.com/package/@ffmpeg/ffmpeg) - 0.12.0부터 [더 이상 Node 환경을 지원하지 않습니다](https://ffmpegwasm.netlify.app/docs/faq#why-ffmpegwasm-doesnt-support-nodejs)
+
+Convex 함수에서 작동하기를 원하는 패키지가 있으면 [알려주세요](https://convex.dev/community).

@@ -1,0 +1,95 @@
+---
+title: "Deploy keys"
+slug: "deploy-key-types"
+sidebar_position: 30
+sidebar_label: "Deploy keys"
+description:
+  "프로덕션 빌드 환경에서 인증을 위해 배포 키 사용"
+---
+
+프로덕션 빌드 환경과 같이 로그인하거나 CLI를 대화식으로 사용하여 프로젝트 또는 배포를 지정할 수 없는 경우, 환경 변수 `CONVEX_DEPLOY_KEY`를 배포 키로 설정하여 convex CLI 명령을 비대화식으로 실행할 수 있습니다.
+
+배포 키는 배포, 프로젝트 또는 팀을 식별하고, 해당 리소스에 대해 특정 작업을 수행할 수 있는 권한을 부여하며, convex CLI의 동작을 변경할 수 있습니다.
+
+### 로컬 개발에는 배포 키가 필요하지 않습니다
+
+새 컴퓨터에서 `npx convex dev`를 실행하면 로그인하거나 계정 없이 Convex를 로컬에서 실행할 수 있는 선택지가 제공됩니다.
+
+로그인하면 `~/.convex/config.json`에 _사용자 토큰_이 저장되며, 이 토큰은 해당 컴퓨터에서 앞으로의 모든 CLI 사용에 자동으로 사용됩니다. 이 토큰은 이 사용자가 액세스할 수 있는 모든 배포에 코드를 푸시하고 데이터를 읽고 쓸 수 있는 권한을 부여합니다.
+
+로그인 없이 Convex를 로컬에서 사용하는 경우([익명 개발](/docs/cli/local-deployments-for-dev.mdx#anonymous-development)) 로컬에서 배포가 생성되고 이 선택 사항이 프로젝트 디렉토리의 `.env.local` 파일에 기록됩니다. 이 익명 백엔드의 _관리자 키_는 직렬화된 데이터와 함께 `~/.convex/anonymous-convex-backend-state/`에 저장됩니다.
+
+이러한 경우 중 어느 경우에도 `CONVEX_DEPLOY_KEY`를 설정할 이유가 없습니다.
+
+### 배포 키 설정 방법
+
+일반적으로 배포 키는 키가 필요한 서비스의 대시보드에서 설정되지만, 대부분의 셸에서는 명령 바로 앞에 설정할 수 있습니다:
+
+```
+CONVEX_DEPLOY_KEY='key goes here' npx convex dev
+```
+
+또는 명령을 실행하기 전에 내보낼 수 있습니다:
+
+```
+export CONVEX_DEPLOY_KEY='key goes here'
+npx convex dev
+```
+
+또는 `.env.local` 파일에 추가하면 해당 디렉토리에서 `npx convex`를 실행할 때 찾을 수 있습니다.
+
+# 배포 키의 일반적인 사용 사례
+
+### 빌드 파이프라인에서 배포하기
+
+_프로덕션 배포 키_는 프로젝트의 프로덕션 배포를 지정하고 코드를 배포할 수 있는 권한을 부여합니다.
+
+> `prod:qualified-jaguar-123|eyJ2...0=`
+
+로그인할 수 없는 빌드 파이프라인(예: Vercel, Netlify, Cloudflare 빌드 파이프라인)에서 코드를 배포할 수 있습니다.
+
+[프로덕션 배포](https://docs.convex.dev/production/hosting/)에 대해 자세히 알아보세요.
+
+### 프리뷰 배포에 배포하기
+
+_프리뷰 배포 키_는 다음과 같이 보입니다:
+
+> `preview:team-slug:project-slug|eyJ2...0=`
+
+프리뷰 배포 키를 사용하여 일반 `npx convex deploy` 명령의 동작을 변경하여 프리뷰 브랜치에 배포할 수 있습니다.
+
+[프리뷰 배포](/production/hosting/preview-deployments)에 대해 자세히 알아보세요.
+
+### 관리자 키
+
+관리자 키는 배포에 대한 완전한 제어를 제공합니다.
+
+관리자 키는 다음과 같이 보일 수 있습니다:
+
+> `bold-hyena-681|01c2...c09c`
+
+다른 유형의 배포 키와 달리, 관리자 키는 생성 시 배포에 포함된 취소할 수 없는 비밀이므로 https://convex.dev에 대한 네트워크 연결이 필요하지 않습니다.
+
+이러한 키는 로그인 없이 로컬에서 [익명](/docs/cli/local-deployments-for-dev.mdx#anonymous-development) Convex 배포를 제어하는 데 사용되지만, 명시적으로 설정할 필요는 거의 없습니다.
+
+`CONVEX_DEPLOY_KEY`를 하나로 설정하면 Convex CLI가 선택지를 제공하는 대신 해당 배포에 대해 실행됩니다.
+
+## 더 드문 유형의 배포 키
+
+### 프로젝트 토큰
+
+_프로젝트 토큰_은 convex CLI에 프로젝트에 대한 완전한 제어를 부여하며, 해당 프로젝트에서 개발 및 프로덕션 배포를 생성하고 사용할 수 있는 권한을 가집니다.
+
+> `project:team-slug:project-slug|eyJ2...0=`
+
+프로젝트 토큰은 사용자가 Convex OAuth 애플리케이션을 통해 조직에 프로젝트를 사용할 수 있는 권한을 부여할 때 얻습니다. 토큰으로 수행된 작업은 사용자를 대신하여 이루어지므로 사용자가 프로젝트에 대한 액세스 권한을 잃으면 토큰도 더 이상 액세스 권한을 부여하지 않습니다.
+
+### 개발 배포 키
+
+_개발 배포 키_는 에이전트에게 개발을 위한 단일 배포에 대한 전체 액세스 권한을 제공하는 데 사용될 수 있습니다.
+
+> `dev:joyful-jaguar-123|eyJ2...0=`
+
+이는 에이전트와 개발할 때 영향 범위를 제한하는 데 도움이 될 수 있습니다.
+
+에이전트에게 자체 개발 배포에 대한 독점적인 액세스 권한을 부여하려면 [Agent Mode](/docs/cli/background-agents.mdx)를 참조하세요.

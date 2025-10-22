@@ -1,0 +1,85 @@
+---
+description: "Understand specific errors thrown by Convex"
+---
+
+# Errors and Warnings
+
+이 페이지는 Convex에서 발생하는 특정 에러들을 설명합니다.
+
+에러 처리에 대한 전반적인 내용은 [Error Handling](/functions/error-handling/error-handling.mdx)을 참조하세요.
+
+<div id="occ-failure"></div>
+
+## Write conflict: Optimistic concurrency control \{#1}
+
+이 시스템 에러는 병렬 mutation 실행으로 인한 충돌 변경으로 인해 mutation이 반복적으로 실패할 때 발생합니다.
+
+### Example A
+
+`updateCounter` mutation은 항상 동일한 문서를 업데이트합니다:
+
+```ts
+export const updateCounter = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const doc = await ctx.db.get(process.env.COUNTER_ID);
+    await ctx.db.patch(doc._id, { value: doc.value + 1 });
+  },
+});
+```
+
+이 mutation이 초당 여러 번 호출되면 많은 실행이 서로 충돌하게 됩니다. Convex는 내부적으로 이 문제를 완화하기 위해 여러 번 재시도하지만, Convex가 실행할 수 있는 속도보다 빠르게 mutation이 호출되면 일부 호출은 결국 이 에러를 발생시킵니다:
+
+<ErrorExample name="updateCounter">
+  Documents read from or written to the table "counters" changed while this
+  mutation was being run and on every subsequent retry. Another call to this
+  mutation changed the document with ID "123456789101112".
+</ErrorExample>
+
+에러 메시지는 테이블 이름, 충돌을 일으킨 mutation(이 예제에서는 동일한 mutation에 대한 다른 호출), 그리고 충돌 변경의 일부였던 문서 ID 하나를 표시합니다.
+
+### Example B
+
+`writeCount` mutation은 전체 `tasks` 테이블에 의존합니다:
+
+```ts
+export const writeCount = mutation({
+  args: {
+    target: v.id("counts"),
+  },
+  handler: async (ctx, args) => {
+    const tasks = await ctx.db.query("tasks").collect();
+    await ctx.db.patch(args.target, { value: tasks });
+  },
+});
+
+export const addTask = mutation({
+  args: {
+    text: v.string(),
+  },
+  handler: async (ctx, args) => {
+    await ctx.db.insert("tasks", { text: args.text });
+  },
+});
+```
+
+`writeCount` mutation이 많은 `addTask` 호출과 동시에 발생하면 두 mutation 중 하나가 이 에러로 실패할 수 있습니다. 이는 `"tasks"` 테이블의 모든 변경이 `writeCount` mutation과 충돌하기 때문입니다:
+
+<ErrorExample name="writeCount">
+  Documents read from or written to the table "tasks" changed while this
+  mutation was being run and on every subsequent retry. A call to "addTask"
+  changed the document with ID "123456789101112".
+</ErrorExample>
+
+### Remediation
+
+이 문제를 해결하려면:
+
+1. mutation이 필요한 데이터만 읽도록 하세요. [선택적 인덱스 범위 표현식](https://docs.convex.dev/database/indexes/)을 사용하는 인덱스 쿼리를 사용하여 읽는 데이터의 양을 줄이는 것을 고려하세요.
+2. 예상치 못한 횟수로 mutation을 호출하지 않는지 확인하세요. 아마도 루프 내의 action에서 호출하고 있을 수 있습니다.
+3. 동일한 문서에 많은 쓰기를 요구하지 않도록 데이터 모델을 설계하세요.
+
+### Resources
+
+- [optimistic concurrency control](/database/advanced/occ.md)에 대해 자세히 알아보세요.
+- mutation 충돌을 피하도록 앱을 설계하는 예제는 이 [Stack post](https://stack.convex.dev/waitlist)를 참조하세요.

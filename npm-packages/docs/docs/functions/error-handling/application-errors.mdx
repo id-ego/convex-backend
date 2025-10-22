@@ -1,0 +1,78 @@
+---
+title: "애플리케이션 오류"
+sidebar_label: "애플리케이션 오류"
+description: "Convex 함수에서 예상되는 실패 처리하기"
+---
+
+import Server from "!!raw-loader!@site/../private-demos/snippets/convex/applicationErrors.ts";
+import ClientTS from "!!raw-loader!@site/../private-demos/snippets/src/applicationErrors.tsx";
+import ClientJS from "!!raw-loader!@site/../private-demos/snippets/src/applicationErrorsJS.jsx";
+
+함수가 실패할 수 있는 예상되는 방법이 있는 경우 다른 값을 반환하거나 `ConvexError`를 던질 수 있습니다.
+
+## 다른 값 반환하기
+
+TypeScript를 사용하는 경우 다른 반환 타입을 사용하여 오류 시나리오를 처리하고 있는지 강제할 수 있습니다.
+
+예를 들어, `createUser` 뮤테이션은 다음을 반환할 수 있습니다:
+
+```ts
+Id<"users"> | { error: "EMAIL_ADDRESS_IN_USE" };
+```
+
+이것은 뮤테이션이 성공했거나 이메일 주소가 이미 사용 중임을 표현합니다.
+
+이렇게 하면 UI에서 이러한 경우를 처리하는 것을 기억할 수 있습니다.
+
+## 애플리케이션 오류 던지기
+
+다음과 같은 이유로 오류를 던지는 것을 선호할 수 있습니다:
+
+- 깊게 중첩된 함수 호출에서 던질 수 있도록 예외 버블링 메커니즘을 사용할 수 있으며, 오류 결과를 호출 스택 위로 수동으로 전파하는 대신 사용할 수 있습니다. 이것은 [액션](/functions/actions.mdx)의 `runQuery`, `runMutation` 및 `runAction` 호출에서도 작동합니다.
+- [뮤테이션](/functions/mutation-functions.mdx)에서 오류를 던지면 뮤테이션 트랜잭션이 커밋되지 않습니다.
+- 클라이언트에서 예상된 오류와 예상치 못한 오류를 모두 균일하게 처리하는 것이 더 간단할 수 있습니다.
+
+Convex는 백엔드에서 클라이언트로 정보를 전달하는 데 사용할 수 있는 오류 하위 클래스인 [`ConvexError`](/api/classes/values.ConvexError)를 제공합니다:
+
+<TSAndJSSnippet
+  title="convex/myFunctions.ts"
+  sourceTS={Server}
+  sourceJS={Server}
+  snippet="example"
+  highlightPatterns={["ConvexError"]}
+/>
+
+### 애플리케이션 오류 `data` 페이로드
+
+함수 인수, 반환 타입 및 데이터베이스에서 지원하는 것과 동일한 [데이터 타입](/database/types.md)을 `ConvexError` 생성자에 전달할 수 있습니다. 이 데이터는 오류의 `data` 속성에 저장됩니다:
+
+```ts
+// error.data === "My fancy error message"
+throw new ConvexError("My fancy error message");
+
+// error.data === {message: "My fancy error message", code: 123, severity: "high"}
+throw new ConvexError({
+  message: "My fancy error message",
+  code: 123,
+  severity: "high",
+});
+
+// error.data === {code: 123, severity: "high"}
+throw new ConvexError({
+  code: 123,
+  severity: "high",
+});
+```
+
+간단한 `string`보다 더 복잡한 오류 페이로드는 보다 구조화된 오류 로깅이나 클라이언트에서 오류 집합을 다르게 처리하는 데 도움이 됩니다.
+
+## 클라이언트에서 애플리케이션 오류 처리하기
+
+클라이언트에서 애플리케이션 오류도 `ConvexError` 클래스를 사용하며, 전달하는 데이터는 `data` 속성을 통해 액세스할 수 있습니다:
+
+<TSAndJSSnippet
+  title="src/App.tsx"
+  sourceTS={ClientTS}
+  sourceJS={ClientJS}
+  highlightPatterns={["ConvexError", ".data"]}
+/>

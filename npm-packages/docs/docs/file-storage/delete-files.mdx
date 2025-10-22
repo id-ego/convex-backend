@@ -1,0 +1,19 @@
+---
+title: "파일 삭제하기"
+sidebar_label: "삭제"
+sidebar_position: 4
+description: "Convex에 저장된 파일 삭제하기"
+---
+
+import DeleteImage from "!!raw-loader!@site/../private-demos/snippets/convex/deletingFiles.ts";
+
+Convex에 저장된 파일은 [`storage.delete()`](/api/interfaces/server.StorageWriter#delete) 함수를 통해 [뮤테이션](/functions/mutation-functions.mdx), [액션](/functions/actions.mdx), [HTTP 액션](/functions/http-actions.mdx)에서 삭제할 수 있으며, 이 함수는 스토리지 ID를 인자로 받습니다.
+
+스토리지 ID는 `"_storage"` 시스템 테이블의 문서에 해당하므로([메타데이터](/file-storage/file-metadata.mdx) 참조), `v.id("_storage")`를 사용하여 검증할 수 있습니다.
+
+<TSAndJSSnippet
+  title="convex/images.ts"
+  sourceTS={DeleteImage}
+  sourceJS={DeleteImage}
+  highlightPatterns={["delete\\("]}
+/>

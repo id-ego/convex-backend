@@ -1,0 +1,117 @@
+---
+title: Vue 빠른 시작
+sidebar_label: Vue
+description: "Vue 프로젝트에 Convex 추가하기"
+hide_table_of_contents: true
+sidebar_position: 325
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/vue/sampleData.jsonl";
+import main from "!!raw-loader!@site/../private-demos/quickstarts/vue/src/main.ts";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/vue/convex/tasks.ts";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/vue/src/App.vue";
+
+Vue 앱에서 Convex 데이터를 쿼리하는 방법을 알아보세요.
+
+이 빠른 시작 가이드는 Convex를 위한 [커뮤니티 관리](/client/vue.md) Vue 클라이언트를 사용합니다.
+
+<StepByStep>
+  <Step title="Vue 사이트 생성하기">
+    `npm create vue@latest my-vue-app` 명령을 사용하여 Vue 사이트를 생성하세요.
+
+    Convex는 모든 옵션 세트와 함께 작동하지만 이 빠른 시작을 가장 가깝게 따르려면 다음을 선택하세요:
+    * "Add TypeScript?"에 예
+    * 그 외 모두 아니오
+
+    <br></br>
+
+    ```sh
+    npm create vue@latest my-vue-app
+    ```
+
+  </Step>
+
+  <Step title="Convex 라이브러리 설치하기">
+    시작하려면 `convex` 패키지를 설치하세요.
+
+    ```sh
+    cd my-vue-app && npm install convex-vue
+    ```
+
+  </Step>
+
+  <Step title="Convex 개발 배포 설정하기">
+    다음으로, `npx convex dev`를 실행하세요. 이것은 GitHub로 로그인하고, 프로젝트를 생성하고, 프로덕션 및 배포 URL을 저장하라는 메시지를 표시합니다.
+
+    또한 백엔드 API 함수를 작성할 수 있는 `convex/` 폴더를 생성합니다. `dev` 명령은 계속 실행되면서 함수를 클라우드의 개발 배포와 동기화합니다.
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스용 샘플 데이터 생성하기">
+    새 터미널 창에서 샘플 데이터가 포함된 `sampleData.jsonl` 파일을 생성하세요.
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="데이터베이스에 샘플 데이터 추가하기">
+    이제 프로젝트가 준비되었으므로 `import` 명령을 사용하여 샘플 데이터가 포함된 `tasks` 테이블을 Convex 데이터베이스에 추가하세요.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스 쿼리 노출하기">
+    `convex/` 폴더에 데이터를 로드하는 쿼리 함수가 포함된 새 파일 `tasks.ts`를 추가하세요.
+
+    이 파일에서 쿼리 함수를 내보내면 파일과 내보내기 이름으로 명명된 API 함수 `api.tasks.get`이 선언됩니다.
+
+    <Snippet
+      source={tasks}
+      title="convex/tasks.ts"
+    />
+
+  </Step>
+
+  <Step title="ConvexProvider 연결하기">
+    `src/main.ts`에서 Convex 클라이언트를 설정하여 앱의 모든 페이지에서 사용할 수 있도록 하세요.
+
+    <Snippet
+      source={main}
+      title="src/main.ts"
+    />
+
+  </Step>
+
+  <Step title="앱에 데이터 표시하기">
+    `src/App.vue`에서 `useQuery`를 사용하여 `api.tasks.get` API 함수를 구독하세요.
+
+    <Snippet
+      source={App}
+      title="src/App.vue"
+    />
+
+  </Step>
+
+  <Step title="앱 시작하기">
+    앱을 시작하고, 브라우저에서 [http://localhost:5173](http://localhost:5173)을 열어 작업 목록을 확인하세요.
+
+    ```sh
+    npm run dev
+    ```
+
+  </Step>
+
+</StepByStep>
+
+전체 [Vue npm 패키지 문서](https://www.npmjs.com/package/convex-vue)를 참조하세요.

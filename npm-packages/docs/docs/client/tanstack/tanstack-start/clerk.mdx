@@ -1,0 +1,43 @@
+---
+title: "TanStack Start와 Clerk"
+sidebar_label: Clerk 사용
+description:
+  "ID 토큰과 ConvexProviderWithClerk를 사용하여 TanStack Start 애플리케이션에서 Clerk 인증을 Convex와 통합하는 방법을 알아보세요."
+---
+
+import appRouter from "!!raw-loader!@site/../private-demos/tanstack-start-clerk/app/router.tsx";
+import appRoutesRoot from "!!raw-loader!@site/../private-demos/tanstack-start-clerk/app/routes/__root.tsx";
+
+Convex와 함께 Clerk를 사용하는 것은 [Clerk TanStack 빠른 시작](https://clerk.com/docs/quickstarts/tanstack-start)을 따르고 [Convex TanStack 빠른 시작](/quickstart/tanstack-start.mdx)이 보여주는 것처럼 Convex를 추가하는 것과 같습니다. 그런 다음 TanStack Start에서 Convex에 인증된 호출을 할 수 있는 모든 곳에서 Clerk ID 토큰을 사용할 수 있도록 하려면 다음을 수행해야 합니다:
+
+1. `const token = await auth.getToken({ template: "convex" })`를 사용하여 `getAuth()` 호출 외에도 Clerk에서 ID 토큰을 가져옵니다.
+2. `ctx.context.convexQueryClient.serverHttpClient?.setAuth(token)`으로 beforeLoad에서 토큰을 설정하여 로더에서 토큰을 사용할 수 있도록 합니다.
+3. 앱이 사용 중일 때 Clerk 토큰을 계속 새로 고치도록 루트 컴포넌트에 `<ConvexProviderWithClerk>`를 추가합니다.
+
+이러한 변경을 수행하면 `app/router.tsx`를 다음과 같이 수정하는 것처럼 보입니다:
+
+<Snippet
+  source={appRouter}
+  title="app/router.tsx"
+  highlightPatterns={["context: "]}
+/>
+
+그리고 `app/routes/__root.tsx`를 다음과 같이 수정합니다:
+
+<Snippet
+  source={appRoutesRoot}
+  title="app/routes/__root.tsx"
+  highlightPatterns={[
+    "getAuth\\(get",
+    "getToken",
+    "token,",
+    "ConvexReactClient",
+    "ConvexQueryClient",
+    "userId, token",
+    "ConvexProviderWithClerk",
+    "if \\(token",
+    "ctx.context.convexQuery",
+  ]}
+/>
+
+이제 [TanStack Query](/client/tanstack/tanstack-query/index.mdx)로 수행된 모든 쿼리, 뮤테이션 및 액션이 Clerk ID 토큰으로 인증됩니다.

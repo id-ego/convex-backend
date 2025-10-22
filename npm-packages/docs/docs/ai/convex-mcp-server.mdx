@@ -1,0 +1,69 @@
+---
+title: "Convex MCP Server"
+sidebar_position: 300
+description: "Convex MCP server"
+---
+
+Convex
+[Model Context Protocol](https://docs.cursor.com/context/model-context-protocol)
+(MCP) 서버는 AI 에이전트가 Convex 배포와 상호작용할 수 있도록 하는 여러 도구를 제공합니다.
+
+## 설정
+
+MCP 서버 설정에 다음 명령어를 추가하세요:
+
+`npx -y convex@latest mcp start`
+
+Cursor의 경우 이 빠른 링크를 사용하여 설치할 수 있습니다:
+
+[![Install MCP Server](https://cursor.com/deeplink/mcp-install-dark.svg)](https://cursor.com/en/install-mcp?name=convex&config=eyJjb21tYW5kIjoibnB4IC15IGNvbnZleEBsYXRlc3QgbWNwIHN0YXJ0In0%3D)
+
+또는 에디터별 설명을 참조하세요:
+
+- [Cursor](/ai/using-cursor.mdx#setup-the-convex-mcp-server)
+- [Windsurf](/ai/using-windsurf.mdx#setup-the-convex-mcp-server)
+- [VS Code](/ai/using-github-copilot.mdx#setup-the-convex-mcp-server)
+- Claude Code: MCP 서버를 추가하고 다음으로 테스트하세요
+  ```bash
+  claude mcp add-json convex '{"type":"stdio","command":"npx","args":["convex","mcp","start"]}'
+  claude mcp get convex
+  ```
+
+## 사용 가능한 도구
+
+### 배포 도구
+
+- **`status`**: 사용 가능한 배포를 쿼리하고 다른 도구와 함께 사용할 수 있는 배포 선택기를 반환합니다. 일반적으로 Convex 배포를 찾기 위해 가장 먼저 사용하는 도구입니다.
+
+### 테이블 도구
+
+- **`tables`**: 배포의 모든 테이블을 다음과 함께 나열합니다:
+
+  - 선언된 스키마(있는 경우)
+  - 추론된 스키마(Convex에서 자동으로 추적)
+  - 테이블 이름 및 메타데이터
+
+- **`data`**: 지정된 테이블의 문서를 페이지네이션할 수 있습니다.
+
+- **`runOneoffQuery`**: 배포의 데이터에 대해 샌드박스된 JavaScript 쿼리를 작성하고 실행할 수 있습니다. 이러한 쿼리는 읽기 전용이며 데이터베이스를 수정할 수 없습니다.
+
+### 함수 도구
+
+- **`functionSpec`**: 다음을 포함한 모든 배포된 함수에 대한 메타데이터를 제공합니다:
+
+  - 함수 타입
+  - 가시성 설정
+  - 인터페이스 사양
+
+- **`run`**: 제공된 인수로 배포된 Convex 함수를 실행합니다.
+
+- **`logs`**: `npx convex logs`와 유사하지만 구조화된 객체로 최근 함수 실행 로그 엔트리의 청크를 가져옵니다.
+
+### 환경 변수 도구
+
+- **`envList`**: 배포의 모든 환경 변수를 나열합니다
+- **`envGet`**: 특정 환경 변수의 값을 가져옵니다
+- **`envSet`**: 새 환경 변수를 설정하거나 기존 변수를 업데이트합니다
+- **`envRemove`**: 배포에서 환경 변수를 제거합니다
+
+[Convex MCP Server 사용 방법에 대해 자세히 알아보기](https://stack.convex.dev/convex-mcp-server)

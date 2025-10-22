@@ -1,0 +1,144 @@
+---
+title: "Convex Docs"
+slug: "home"
+hide_table_of_contents: true
+---
+
+import TutorialGraphic from "@site/static/img/tutorial-graphic.svg";
+import {
+  QuickFrameworksList,
+  QuickLanguagesList,
+} from "@site/src/QuickstartsList.tsx";
+import { LargeCardList } from "@site/src/QuickstartsList.tsx";
+import { YouTubeList } from "@site/src/YouTubeLink.tsx";
+import Link from "@docusaurus/Link";
+
+Convex는 쿼리가 데이터베이스 내에서 직접 실행되는 TypeScript 코드인 오픈소스 반응형 데이터베이스입니다. React 컴포넌트가 상태 변경에 반응하는 것처럼, Convex 쿼리는 데이터베이스 변경에 반응합니다.
+
+Convex는 데이터베이스, 서버 함수를 작성할 수 있는 공간, 그리고 클라이언트 라이브러리를 제공합니다. 동적이고 실시간으로 업데이트되는 앱을 쉽게 구축하고 확장할 수 있게 해줍니다.
+
+<LargeCardList
+  items={[
+    {
+      title: "튜토리얼: 채팅 앱 만들기",
+      description:
+        "단계별 튜토리얼을 따라 첫 번째 Convex 앱인 실시간 채팅 애플리케이션을 만들어보세요.",
+      href: "/tutorial",
+    },
+    {
+      title: "Convex 이해하기",
+      description:
+        "Convex를 독특하고 강력하게 만드는 핵심 개념과 아키텍처에 대해 알아보세요.",
+      href: "/understanding",
+    },
+  ]}
+/>
+
+## 시작하기
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+    href: "https://chef.convex.dev",
+    label: "Convex Chef로 앱 시작하기",
+  }}
+/>
+
+선호하는 프레임워크:
+
+<QuickFrameworksList />
+
+선호하는 언어:
+
+<QuickLanguagesList />
+
+## 왜 Convex인가?
+
+<YouTubeList
+  items={[
+    {
+      src: "https://www.youtube.com/embed/Xjud1weG4z8?si=OMMfKzK_Dp8RgmgM",
+      label: "제품 개발자를 위한 백엔드",
+    },
+    {
+      src: "https://www.youtube.com/embed/UVvd7BF99-4?si=Z9_pLHMnpL9kaduE",
+      label: "Convex 소개",
+    },
+    {
+      src: "https://www.youtube.com/embed/V6En7UO4Ui0?si=kcj1aftxV-tqe9Q-",
+      label: "반응형 백엔드로 앱 성능 향상시키기",
+    },
+
+    {
+      src: "https://www.youtube.com/embed/O_HXVAMPEbc?si=qtA8nLyGjGUsXVkL",
+      label: "왜 Supabase 대신 Convex를 BaaS로 사용하는가",
+    },
+
+]} />
+
+[Stack](https://stack.convex.dev)에서 팀의 관점을 읽어보세요:
+
+<DocCardList
+  items={[
+    {
+      type: "link",
+      href: "https://stack.convex.dev/convex-vs-relational-databases",
+      label: "Convex vs 관계형 데이터베이스",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/convex-vs-firebase",
+      label: "Convex vs Firebase",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/how-convex-works",
+      label: "Convex 작동 원리",
+    },
+  ]}
+/>
+
+## Convex 배우기
+
+<YouTubeList
+  items={[
+    {
+      src: "https://www.youtube.com/embed/vaQZYRSiimI?si=JLfdVVs3QkCLTZwc",
+      label: "Next.js로 시작하는 Convex 퀵스타트",
+    },
+    {
+      src: "https://www.youtube.com/embed/0OaDyjB9Ib8?si=V5_9FN3UieZmnOM5",
+      label: "Notion 클론: Next.js 13, React, Convex, Tailwind",
+    },
+    {
+      src: "https://www.youtube.com/embed/zfAb95tJvZQ?si=PaiBxNxCO0s2BuEZ",
+      label: "Next.js로 SaaS 팟캐스트 플랫폼 만들기",
+    },
+    {
+      src: "https://www.youtube.com/embed/Vjtn9pWAZDI?si=of21uqly5laJQJAs",
+      label: "Stripe를 이용한 구독 기반 SaaS 만들기",
+    },
+
+]} />
+
+[Stack](https://stack.convex.dev)에서 더 많은 워크스루와 패턴을 확인하세요
+
+<DocCardList
+  items={[
+    {
+      type: "link",
+      href: "https://stack.convex.dev/tag/AI",
+      label: "AI 앱 만들기",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/tag/Patterns",
+      label: "Convex 패턴",
+    },
+    {
+      type: "link",
+      href: "https://stack.convex.dev/tag/Walkthroughs",
+      label: "Convex 워크스루",
+    },
+  ]}
+/>

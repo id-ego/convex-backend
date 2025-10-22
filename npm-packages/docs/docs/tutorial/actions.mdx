@@ -1,0 +1,226 @@
+---
+title: "Convex 튜토리얼: 외부 서비스 호출하기"
+sidebar_label: "2. 외부 서비스 호출하기"
+slug: "actions"
+sidebar_position: 200
+hide_table_of_contents: true
+description:
+  "Convex 액션과 스케줄러를 사용하여 외부 API를 호출하고 Wikipedia 요약을 애플리케이션에 통합하여 채팅 앱을 확장하세요."
+---
+
+# Convex 튜토리얼: 외부 서비스 호출하기
+
+[이전 단계](/tutorial/index.mdx)에서는 완전히 독립적인 채팅 앱을 만들었습니다. 데이터를 입력하고 출력합니다.
+
+방금 본 자동 반응성을 제공하면서 강력한 데이터베이스 트랜잭션을 제공하기 위해, Convex의 쿼리 및 뮤테이션 함수는 외부 세계로 `fetch` 호출을 수행할 수 없습니다.
+
+실제 앱은 이렇게 간단하지 않습니다. 백엔드에서 직접 인터넷의 나머지 부분과 통신해야 하는 경우가 많습니다. Convex는 **액션** 함수를 통해 이것도 가능하게 합니다.
+
+액션 함수는 동기화 엔진이 외부 세계에 액세스할 수 있도록 작업을 스케줄링하여 뮤테이션을 통해 데이터를 다시 작성할 수 있게 합니다.
+
+Wikipedia API를 사용하여 채팅의 누구나 주제에 대한 Wikipedia 요약을 얻을 수 있도록 채팅 앱을 좀 더 스마트하게 만들어 보겠습니다.
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe
+    width="560"
+    height="315"
+    src="https://www.youtube.com/embed/0bn9RcwOwOQ?si=C5Gvz2Us2H1KIAQu"
+    title="YouTube video player"
+    frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allowfullscreen
+  ></iframe>
+</div>
+
+## 첫 번째 `action`
+
+**다음 액션을 `convex/chat.ts` 파일에 추가하세요.**
+
+```typescript
+// highlight-next-line
+// 다음과 같이 서버 import를 업데이트하세요:
+// highlight-next-line
+import { query, mutation, internalAction } from "./_generated/server";
+
+//...
+
+// highlight-next-line
+export const getWikipediaSummary = internalAction({
+  // highlight-next-line
+  args: { topic: v.string() },
+  // highlight-next-line
+  handler: async (ctx, args) => {
+    // highlight-next-line
+    const response = await fetch(
+      // highlight-next-line
+      "https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&titles=" +
+        // highlight-next-line
+        args.topic,
+      // highlight-next-line
+    );
+    // highlight-next-line
+
+    // highlight-next-line
+    return getSummaryFromJSON(await response.json());
+    // highlight-next-line
+  },
+  // highlight-next-line
+});
+// highlight-next-line
+
+// highlight-next-line
+function getSummaryFromJSON(data: any) {
+  // highlight-next-line
+  const firstPageId = Object.keys(data.query.pages)[0];
+  // highlight-next-line
+  return data.query.pages[firstPageId].extract;
+  // highlight-next-line
+}
+```
+
+단계별로 살펴보겠습니다:
+
+1. 먼저, `getWikipediaSummary`라는 새로운 Convex 액션 함수를 만들었습니다.
+   이 함수를 Convex 백엔드 내부에서만 사용하고 공개 API로 노출하지 않기 위해 `internalAction`을 사용했습니다. 이 함수는 우리의 주제로 Wikipedia API에 간단한 fetch를 수행합니다.
+1. 다음으로, JSON 응답에서 요약 텍스트를 추출하는 `getSummaryFromJSON`이라는 도우미 TypeScript 함수가 있습니다.
+1. `getWikipediaSummary` 함수는 다른 TypeScript 함수처럼 우리의 도우미 함수를 호출합니다.
+
+이것은 좋지만, 어떻게 사용할까요?
+
+Convex 대시보드에서 이 함수를 빠르게 테스트하려면,
+[https://dashboard.convex.dev](https://dashboard.convex.dev/deployment/functions)로 이동하여
+프로젝트로 이동하세요. 왼쪽 내비게이션에서 Functions를 클릭한 다음,
+`getWikipediaSummary` 함수를 클릭하세요. "Run Function"을 클릭하세요.
+
+함수 실행 UI가 나타납니다. 몇 가지 검색을 시도해 보세요.
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_dashboard_action.mp4" type="video/mp4" />
+  몇 가지 Wikipedia 쿼리 실행하기
+</video>
+
+## 앱에 연결하기
+
+Wikipedia를 호출할 수 있는 것은 좋지만, 여전히 채팅에 표시되어야 합니다. 그러니, 모두 연결해 보겠습니다.
+
+**기존 `sendMessage` 뮤테이션을 다음과 같이 업데이트하세요:**
+
+```typescript
+// highlight-next-line
+// api 참조를 import하세요
+// highlight-next-line
+import { api, internal } from "./_generated/api";
+
+//...
+
+export const sendMessage = mutation({
+  args: {
+    user: v.string(),
+    body: v.string(),
+  },
+  handler: async (ctx, args) => {
+    console.log("This TypeScript function is running on the server.");
+    await ctx.db.insert("messages", {
+      user: args.user,
+      body: args.body,
+    });
+
+    // highlight-next-line
+    // 다음 라인들을 추가하세요:
+    // highlight-next-line
+    if (args.body.startsWith("/wiki")) {
+      // highlight-next-line
+      // 첫 번째 공백 이후의 문자열을 가져옵니다
+      // highlight-next-line
+      const topic = args.body.slice(args.body.indexOf(" ") + 1);
+      // highlight-next-line
+      await ctx.scheduler.runAfter(0, internal.chat.getWikipediaSummary, {
+        // highlight-next-line
+        topic,
+        // highlight-next-line
+      });
+      // highlight-next-line
+    }
+  },
+});
+```
+
+잠깐만요! 이 `ctx.scheduler`는 뭔가요? Convex는 강력한 내구성 있는 함수 스케줄러를 제공합니다. 이것은 동기화 엔진의 기본적인 부분이며, Convex에서 비동기 함수를 조정하는 방법입니다.
+
+뮤테이션의 경우, 외부 세계에서 가져오기 위해 액션을 호출하는 유일한 방법입니다. 정말 멋진 부분은, 어떤 이유로 뮤테이션이 예외를 던지면 아무것도 스케줄링되지 않는다는 것입니다. 이는 뮤테이션이 트랜잭션이고, 스케줄링은 Convex에 이 함수를 미래 시간에 실행하라고 알려주는 데이터베이스의 쓰기일 뿐이기 때문입니다.
+
+좋아요, 액션을 스케줄링할 수 있지만, 여전히 요약을 채팅에 다시 작성해야 합니다.
+
+**`getWikipediaSummary` 액션을 다시 업데이트해 보겠습니다:**
+
+```typescript
+export const getWikipediaSummary = internalAction({
+  args: { topic: v.string() },
+  handler: async (ctx, args) => {
+    const response = await fetch(
+      "https://en.wikipedia.org/w/api.php?format=json&action=query&prop=extracts&exintro&explaintext&redirects=1&titles=" +
+        args.topic,
+    );
+
+    // highlight-next-line
+    // `return ...`을 다음으로 교체하세요.
+    // highlight-next-line
+    const summary = getSummaryFromJSON(await response.json());
+    // highlight-next-line
+    await ctx.scheduler.runAfter(0, api.chat.sendMessage, {
+      // highlight-next-line
+      user: "Wikipedia",
+      // highlight-next-line
+      body: summary,
+      // highlight-next-line
+    });
+  },
+});
+```
+
+액션 스케줄링과 마찬가지로, 이제 우리의 `sendMessage` 뮤테이션을 스케줄링하여 Wikipedia 조회 결과를 채팅으로 보냅니다.
+
+이제 앱을 가지고 놀아보세요!
+
+<video autoPlay playsInline muted loop width="100%">
+  <source src="/img/tutorial/tut_wikipedia.mp4" type="video/mp4" />
+  Wikipedia와 채팅하기
+</video>
+
+## 스케줄러, 액션, 그리고 동기화 엔진
+
+<div className="center-image" style={{ maxWidth: "900px" }}>
+  ![액션이 있는 동기화 엔진](/img/tutorial/ConvexSyncAction.png)
+</div>
+
+쿼리와 뮤테이션은 데이터베이스와 상호 작용하는 유일한 방법이며, 스케줄러는 그 사이에 액션으로 정교한 워크플로우를 구축할 수 있게 합니다.
+
+[액션](/functions/actions.mdx)은 AWS Lambda 및 Google Cloud Run과 같은 일반 서버리스 함수입니다. AI API 호출 및 Vector Store 사용과 같은 플로우를 모델링하는 데 도움이 됩니다. 탈출구 역할을 합니다. 보장이 거의 없는 지저분한 외부 세계의 현실을 다룹니다.
+
+액션은 동기화 엔진의 일부가 아닙니다. 데이터베이스와 통신하려면 쿼리 및 뮤테이션 함수를 통해 통신해야 합니다. 이 제한을 통해 Convex는 데이터베이스에서 트랜잭션 보장을 강제하고 동기화 엔진을 빠르고 민첩하게 유지할 수 있습니다.
+
+확장을 위해 애플리케이션을 구조화하는 가장 좋은 방법은 액션에서 발생하는 작업을 최소화하는 것입니다. 외부 `fetch` 호출과 같은 [비결정성](https://en.wikipedia.org/wiki/Deterministic_algorithm)이 필요한 부분만 사용해야 합니다. 가능한 한 작게 유지하는 것이 가장 확장 가능한 방법이며, 최고의 처리량을 가능하게 합니다.
+
+스케줄러를 사용하면 앱이 대부분의 중요한 로직을 쿼리와 뮤테이션에 유지하고 액션 안팎으로 워크플로우로 코드를 구조화할 수 있습니다.
+
+## 만든 것
+
+이 섹션에서는 외부 세계와 통신하기 위한 액션을 만들고 스케줄러를 사용하여 이 작업을 트리거했습니다.
+
+액션을 작게 유지하고 대부분의 작업을 쿼리와 뮤테이션에 유지하는 것이 확장 가능한 Convex 백엔드를 구축하는 데 기본적이라는 것을 배웠습니다.
+
+## 다음 단계
+
+이제 Convex에서 가장 중요한 개념을 배웠습니다. 완전한 기능을 갖춘 백엔드로서 Convex는 [인증](/auth.mdx), [파일 스토리지](/file-storage.mdx), [검색](/search.mdx)과 같은 많은 것들을 수행할 수 있습니다. 문서를 따라 필요에 따라 이러한 기능을 추가할 수 있습니다.
+
+성공을 위해 앱을 설정하는 것에 대해 조금 다뤘습니다. 애플리케이션이 확장됨에 따라 새로운 과제에 직면하게 됩니다. [다음 섹션 →](/tutorial/scale.mdx)에서 이러한 과제 중 일부를 다루는 방법을 배워보겠습니다.
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+    href: "/tutorial/scale",
+    docId: "tutorial/scale",
+    label: "앱 확장하기",
+  }}
+/>

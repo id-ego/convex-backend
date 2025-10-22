@@ -1,0 +1,186 @@
+---
+title: "인수 및 반환 값 검증"
+sidebar_label: "검증"
+sidebar_position: 50
+description: "보안을 위한 함수 인수 및 반환 값 검증하기"
+---
+
+import ConvexValues from "@site/docs/_convexValues.mdx";
+
+import messagesTS from "!!raw-loader!@site/../demos/args-validation/convex/messages.ts";
+
+인수 및 반환 값 검증자는 [쿼리](./query-functions.mdx), [뮤테이션](./mutation-functions.mdx) 및 [액션](./actions.mdx)이 올바른 타입의 인수로 호출되고 예상되는 타입의 반환 값을 반환하도록 보장합니다.
+
+**이것은 보안에 중요합니다!** 인수 검증이 없으면 악의적인 사용자가 예상치 못한 인수로 공개 함수를 호출하여 놀라운 결과를 초래할 수 있습니다. [TypeScript](/understanding/best-practices/typescript) 단독으로는 도움이 되지 않습니다. TypeScript 타입은 런타임에 존재하지 않기 때문입니다. 프로덕션 앱의 모든 공개 함수에 인수 검증을 추가하는 것이 좋습니다. 클라이언트에서 호출되지 않는 비공개 함수의 경우 [내부 함수](/functions/internal-functions.mdx) 및 선택적으로 검증을 권장합니다.
+
+**예제:**
+[인수 검증](https://github.com/get-convex/convex-demos/tree/main/args-validation)
+
+## 검증자 추가하기
+
+함수에 인수 검증을 추가하려면 `query`, `mutation` 또는 `action` 생성자에 `args` 및 `handler` 속성이 있는 객체를 전달합니다. 반환 값 검증을 추가하려면 이 객체에서 `returns` 속성을 사용합니다:
+
+<TSAndJSSnippet
+  title="convex/message.ts"
+  sourceTS={messagesTS}
+  sourceJS={messagesTS}
+  snippet="mutation"
+/>
+
+인수 검증자를 사용하여 함수를 정의하면 [TypeScript](/understanding/best-practices/typescript.mdx) 타입 주석을 포함할 필요가 없습니다! 함수의 타입이 자동으로 추론됩니다. 마찬가지로 반환 값 검증자를 정의하면 함수의 반환 타입이 검증자에서 추론되고 TypeScript는 `handler` 함수의 추론된 반환 타입과 일치하는지 확인합니다.
+
+TypeScript와 달리 객체에 대한 검증은 검증자에서 선언되지 않은 속성이 객체에 포함되어 있으면 던집니다.
+
+클라이언트가 `args`에서 선언되지 않은 인수를 제공하거나 함수가 `returns`에서 선언된 검증자와 일치하지 않는 값을 반환하는 경우. 이는 인수 이름의 오타나 의도한 것보다 더 많은 데이터를 클라이언트로 반환하여 발생하는 버그를 방지하는 데 도움이 됩니다.
+
+`args: {}`조차도 TypeScript가 인수를 기대하지 않는 함수에 인수를 전달하려고 하면 클라이언트에서 오류를 표시하기 때문에 검증자의 유용한 사용입니다.
+
+## 지원되는 타입
+
+공개 및 내부 함수 모두 다음 데이터 타입을 받아들이고 반환할 수 있습니다. 각 타입에는 `"convex/values"`에서 가져온 [`v`](/api/modules/values#v) 객체에서 액세스할 수 있는 해당 검증자가 있습니다.
+
+[데이터베이스](/database.mdx)는 정확히 동일한 [데이터 타입](/database/types.md) 집합을 저장할 수 있습니다.
+
+또한 타입 유니온, 리터럴, `any` 타입 및 선택적 필드를 표현할 수도 있습니다.
+
+### Convex 값
+
+<ConvexValues />
+
+### 유니온
+
+`v.union`을 사용하여 여러 타입 중 하나일 수 있는 필드를 설명할 수 있습니다:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    stringOrNumber: v.union(v.string(), v.number()),
+  },
+  handler: async ({ db }, { stringOrNumber }) => {
+    //...
+  },
+});
+```
+
+### 리터럴
+
+상수인 필드는 `v.literal`로 표현할 수 있습니다. 이는 유니온과 결합할 때 특히 유용합니다:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    oneTwoOrThree: v.union(
+      v.literal("one"),
+      v.literal("two"),
+      v.literal("three"),
+    ),
+  },
+  handler: async ({ db }, { oneTwoOrThree }) => {
+    //...
+  },
+});
+```
+
+### 레코드 객체
+
+`v.record`를 사용하여 임의의 키를 값에 매핑하는 객체를 설명할 수 있습니다:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    simpleMapping: v.record(v.string(), v.boolean()),
+  },
+  handler: async ({ db }, { simpleMapping }) => {
+    //...
+  },
+});
+```
+
+키에 다른 타입의 문자열 검증자를 사용할 수 있습니다:
+
+```typescript
+defineTable({
+  userIdToValue: v.record(v.id("users"), v.boolean()),
+});
+```
+
+참고:
+
+- 이 타입은 TypeScript의 [Record\<K,V\>](https://www.typescriptlang.org/docs/handbook/utility-types.html#recordkeys-type) 타입에 해당합니다.
+- 문자열 리터럴을 `record` 키로 사용할 수 없습니다.
+- `v.string()`을 `record` 키 검증자로 사용하면 ASCII 문자만 허용됩니다.
+
+### Any
+
+모든 값을 취할 수 있는 필드는 `v.any()`로 나타낼 수 있습니다:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    anyValue: v.any(),
+  },
+  handler: async ({ db }, { anyValue }) => {
+    //...
+  },
+});
+```
+
+이는 TypeScript의 `any` 타입에 해당합니다.
+
+### 선택적 필드
+
+`v.optional(...)`로 타입을 래핑하여 선택적 필드를 설명할 수 있습니다:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    optionalString: v.optional(v.string()),
+    optionalNumber: v.optional(v.number()),
+  },
+  handler: async ({ db }, { optionalString, optionalNumber }) => {
+    //...
+  },
+});
+```
+
+이는 TypeScript에서 `?`로 필드를 선택적으로 표시하는 것에 해당합니다.
+
+## TypeScript 타입 추출하기
+
+[`Infer`](/api/modules/values#infer) 타입을 사용하면 검증자 호출을 TypeScript 타입으로 변환할 수 있습니다. 이는 검증자와 TypeScript 타입 간의 중복을 제거하는 데 유용할 수 있습니다:
+
+```ts
+import { mutation } from "./_generated/server";
+import { Infer, v } from "convex/values";
+
+const nestedObject = v.object({
+  property: v.string(),
+});
+
+// `{property: string}`으로 해석됩니다.
+export type NestedObject = Infer<typeof nestedObject>;
+
+export default mutation({
+  args: {
+    nested: nestedObject,
+  },
+  handler: async ({ db }, { nested }) => {
+    //...
+  },
+});
+```

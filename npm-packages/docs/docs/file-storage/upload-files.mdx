@@ -1,0 +1,130 @@
+---
+title: "파일 업로드 및 저장하기"
+sidebar_label: "업로드"
+sidebar_position: 1
+description: "Convex 스토리지에 파일 업로드하기"
+---
+
+import Messages from "!!raw-loader!@site/../demos/file-storage/convex/messages.ts";
+import URLUploadTS from "!!raw-loader!@site/../demos/file-storage/src/_simpleApp.tsx";
+import URLUploadJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageApp.jsx";
+import HttpAction from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import HttpUploadTS from "!!raw-loader!@site/../demos/file-storage-with-http/src/_simpleApp.tsx";
+import HttpUploadJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageWithHttpApp.jsx";
+
+[생성된 업로드 URL](#uploading-files-via-upload-urls)을 통해 또는 [커스텀 HTTP 액션](#uploading-files-via-an-http-action)을 통해 Convex에 파일을 업로드하세요.
+
+## 업로드 URL을 통한 파일 업로드
+
+생성된 업로드 URL을 사용하여 임의 크기의 파일을 백엔드에 직접 업로드할 수 있습니다. 이를 위해서는 클라이언트가 3개의 요청을 해야 합니다:
+
+1. [`storage.generateUploadUrl()`](/api/interfaces/server.StorageWriter#generateuploadurl)을 호출하는 뮤테이션을 사용하여 업로드 URL을 생성합니다.
+2. 파일 내용과 함께 업로드 URL로 POST 요청을 보내고 스토리지 ID를 받습니다.
+3. 다른 뮤테이션을 통해 스토리지 ID를 데이터 모델에 저장합니다.
+
+업로드 URL을 생성하는 첫 번째 뮤테이션에서 누가 Convex 스토리지에 파일을 업로드할 수 있는지 제어할 수 있습니다.
+
+**예시**:
+[쿼리와 뮤테이션을 사용한 파일 스토리지](https://github.com/get-convex/convex-demos/tree/main/file-storage)
+
+### 웹 페이지에서 업로드 API 호출하기
+
+다음은 뮤테이션으로 생성된 업로드 URL로 폼 제출 핸들러를 통해 이미지를 업로드하는 예시입니다:
+
+<TSAndJSSnippet
+  title="src/App.jsx"
+  sourceTS={URLUploadTS}
+  sourceJS={URLUploadJS}
+  snippet="fileUpload"
+  highlightPatterns={[
+    "generateUploadUrl\\(",
+    "sendImage\\(",
+    "await fetch",
+    "method:",
+    "headers:",
+    "body:",
+    "}\\);",
+  ]}
+/>
+
+### 업로드 URL 생성하기
+
+업로드 URL은 [`MutationCtx`](/api/interfaces/server.GenericMutationCtx) 객체의 [`storage.generateUploadUrl`](/api/interfaces/server.StorageWriter#generateuploadurl) 함수를 통해 생성할 수 있습니다:
+
+<TSAndJSSnippet
+  title="convex/messages.js"
+  sourceTS={Messages}
+  sourceJS={Messages}
+  snippet="generateUploadUrl"
+  highlightPatterns={["storage.generateUploadUrl"]}
+/>
+
+이 뮤테이션은 누가 파일을 업로드할 수 있는지 제어할 수 있습니다.
+
+업로드 URL은 1시간 후 만료되므로 업로드 직전에 가져와야 합니다.
+
+### 데이터베이스에 새 스토리지 ID 쓰기
+
+스토리지 ID가 클라이언트로 반환되므로 다른 뮤테이션을 통해 데이터베이스에 저장하고 싶을 것입니다:
+
+<TSAndJSSnippet
+  title="convex/messages.ts"
+  sourceTS={Messages}
+  sourceJS={Messages}
+  prefix={`import { mutation } from "./_generated/server";\n`}
+  snippet="saveStorageId"
+  highlightPatterns={["storage.generateUploadUrl"]}
+/>
+
+### 제한 사항
+
+파일 크기에는 제한이 없지만, 업로드 POST 요청은 2분의 타임아웃이 있습니다.
+
+## HTTP 액션을 통한 파일 업로드
+
+[HTTP 액션](/functions/http-actions.mdx)을 활용하여 파일 업로드 프로세스를 보다 엄격하게 제어할 수 있으며, 단일 요청으로 전체 업로드 흐름을 수행할 수 있지만 올바른 CORS 헤더 구성이 필요합니다.
+
+커스텀 업로드 HTTP 액션은 누가 Convex 스토리지에 파일을 업로드할 수 있는지 제어할 수 있습니다. 하지만 HTTP 액션 요청 크기는 [현재 제한](/functions/http-actions.mdx#limits)이 20MB입니다. 더 큰 파일의 경우 [위](#uploading-files-via-upload-urls)에서 설명한 업로드 URL을 사용해야 합니다.
+
+**예시:**
+[HTTP 액션을 사용한 파일 스토리지](https://github.com/get-convex/convex-demos/tree/main/file-storage-with-http)
+
+### 웹 페이지에서 업로드 HTTP 액션 호출하기
+
+다음은 다음에 정의된 `sendImage` HTTP 액션으로 폼 제출 핸들러를 통해 이미지를 업로드하는 예시입니다.
+
+강조 표시된 줄은 HTTP 액션에 대한 실제 요청을 만듭니다:
+
+<TSAndJSSnippet
+  title="src/App.tsx"
+  sourceTS={HttpUploadTS}
+  sourceJS={HttpUploadJS}
+  snippet="httpFileUpload"
+  highlightPatterns={["fetch", "method:", "headers:", "body:", "}\\);"]}
+/>
+
+### 업로드 HTTP 액션 정의하기
+
+HTTP 요청 본문으로 전송된 파일은 [`ActionCtx`](/api/interfaces/server.GenericActionCtx) 객체의 [`storage.store`](/api/interfaces/server.StorageActionWriter#store) 함수를 사용하여 저장할 수 있습니다. 이 함수는 저장된 파일의 `Id<"_storage">`를 반환합니다.
+
+HTTP 액션에서 뮤테이션을 호출하여 스토리지 ID를 데이터베이스의 문서에 쓸 수 있습니다.
+
+호스팅된 웹사이트에 성공을 확인하려면 올바른 [CORS 헤더](/functions/http-actions.mdx#cors)를 설정해야 합니다:
+
+<TSAndJSSnippet
+  title="convex/http.js"
+  sourceTS={HttpAction}
+  sourceJS={HttpAction}
+  snippet="sendImageStore"
+  highlightPatterns={["storage.store"]}
+/>
+
+프리플라이트 `OPTIONS` 요청도 처리해야 합니다:
+
+<TSAndJSSnippet
+  title="convex/http.js"
+  sourceTS={HttpAction}
+  sourceJS={HttpAction}
+  snippet="preflight"
+  highlightPatterns={["storage.store"]}
+/>

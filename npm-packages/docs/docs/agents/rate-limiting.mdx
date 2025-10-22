@@ -1,0 +1,260 @@
+---
+title: 속도 제한
+sidebar_label: "속도 제한"
+sidebar_position: 1200
+description: "AI 에이전트에 대한 요청 속도 제어하기"
+---
+
+속도 제한은 AI 에이전트에 대한 요청 속도를 제어하여 남용을 방지하고 API 예산을 관리하는 방법입니다.
+
+[속도 제한 컴포넌트](https://www.convex.dev/components/rate-limiter)를 사용하는 방법을 보여주기 위해 직접 실행할 수 있는 예제 구현이 있습니다.
+
+주어진 기간 동안 사용자가 보낼 수 있는 메시지 수와 사용자의 총 토큰 사용량을 속도 제한합니다. 한도가 초과되면 클라이언트는 반응적으로 사용자에게 대기 시간을 알릴 수 있습니다(다른 브라우저 탭에서 한도를 초과한 경우에도!).
+
+일반 사용량 추적은 [사용량 추적](./usage-tracking.mdx)을 참조하세요.
+
+## 개요
+
+속도 제한 예제는 두 가지 유형의 속도 제한을 보여줍니다:
+
+1. **메시지 속도 제한**: 사용자가 너무 자주 메시지를 보내는 것을 방지
+2. **토큰 사용량 속도 제한**: 시간 경과에 따른 AI 모델 토큰 소비 제어
+
+## 예제 실행하기
+
+```sh
+git clone https://github.com/get-convex/agent.git
+cd agent
+npm run setup
+npm run example
+```
+
+속도 제한이 작동하는 것을 보려면 여러 질문을 빠르게 보내보세요!
+
+## 속도 제한 전략
+
+아래에서 각 구성을 살펴보겠습니다. [rateLimiting.ts](https://github.com/get-convex/agent/blob/main/example/convex/rate_limiting/rateLimiting.ts)에서 전체 예제 구현을 볼 수도 있습니다.
+
+```ts
+import { MINUTE, RateLimiter, SECOND } from "@convex-dev/rate-limiter";
+import { components } from "./_generated/api";
+
+export const rateLimiter = new RateLimiter(components.rateLimiter, {
+  sendMessage: {
+    kind: "fixed window",
+    period: 5 * SECOND,
+    rate: 1,
+    capacity: 2,
+  },
+  globalSendMessage: { kind: "token bucket", period: MINUTE, rate: 1_000 },
+  tokenUsagePerUser: {
+    kind: "token bucket",
+    period: MINUTE,
+    rate: 2000,
+    capacity: 10000,
+  },
+  globalTokenUsage: { kind: "token bucket", period: MINUTE, rate: 100_000 },
+});
+```
+
+### 1. 메시지에 대한 고정 윈도우 속도 제한
+
+```ts
+// export const rateLimiter = new RateLimiter(components.rateLimiter, {
+sendMessage: { kind: "fixed window", period: 5 * SECOND, rate: 1, capacity: 2 }
+```
+
+- 사용자당 5초마다 1개의 메시지를 허용합니다.
+- 스팸 및 빠른 연속 요청을 방지합니다.
+- 이전 5초 동안 남은 사용량이 있는 경우 `capacity`를 통해 5초 내에 최대 2개의 메시지 버스트를 전송할 수 있습니다.
+
+전역 한도:
+
+```ts
+globalSendMessage: { kind: "token bucket", period: MINUTE, rate: 1_000 },
+```
+
+- API 한도를 유지하기 위해 전역적으로 분당 1000개의 메시지를 허용합니다.
+- 토큰 버킷으로서 분당 1000개의 토큰 비율로 토큰을 지속적으로 누적하며 1000에서 제한됩니다. 사용 가능한 모든 토큰을 빠르게 연속으로 사용할 수 있습니다.
+
+### 2. 토큰 사용량에 대한 토큰 버킷 속도 제한
+
+```ts
+tokenUsage: { kind: "token bucket", period: MINUTE, rate: 1_000 }
+globalTokenUsage: { kind: "token bucket", period: MINUTE, rate: 100_000 },
+```
+
+- 사용자당(키로 userId가 제공됨) 분당 1000개의 토큰을 허용하고 전역적으로 분당 100k 토큰을 허용합니다.
+- 전체 사용량을 제어하면서 버스트 용량을 제공합니다. 한동안 사용하지 않은 경우 모든 토큰을 한 번에 소비할 수 있습니다. 그러나 더 많은 요청을 하기 전에 토큰이 점차 누적될 때까지 기다려야 합니다.
+- 사용자별 한도를 두는 것은 LLM 제공업체에서 사용 가능한 모든 토큰 대역폭을 단일 사용자가 독점하는 것을 방지하는 데 유용하며, 전역 한도는 잠재적으로 긴 다단계 요청 중간에 오류를 던지지 않고 API 한도를 유지하는 데 도움이 됩니다.
+
+## 작동 방식
+
+### 1단계: 사전 비행 속도 제한 확인
+
+질문을 처리하기 전에 시스템은 다음을 수행합니다:
+
+1. 사용자가 다른 메시지를 보낼 수 있는지 확인(빈도 한도)
+2. 질문에 대한 토큰 사용량 추정
+3. 사용자에게 충분한 토큰 허용량이 있는지 확인
+4. 한도가 초과되면 오류를 throw
+5. 속도 제한이 초과되지 않으면 LLM 요청이 이루어집니다.
+
+전체 구현은 [rateLimiting.ts](https://github.com/get-convex/agent/blob/main/example/convex/rate_limiting/rateLimiting.ts)를 참조하세요.
+
+```ts
+// In the mutation that would start generating a message.
+await rateLimiter.limit(ctx, "sendMessage", { key: userId, throws: true });
+// Also check global limit.
+await rateLimiter.limit(ctx, "globalSendMessage", { throws: true });
+
+// A heuristic based on the previous token usage in the thread + the question.
+const count = await estimateTokens(ctx, args.threadId, args.question);
+// Check token usage, but don't consume the tokens yet.
+await rateLimiter.check(ctx, "tokenUsage", {
+  key: userId,
+  count: estimateTokens(args.question),
+  throws: true,
+});
+// Also check global limit.
+await rateLimiter.check(ctx, "globalTokenUsage", {
+  count,
+  reserve: true,
+  throws: true,
+});
+```
+
+충분한 허용량이 없는 경우 속도 제한기는 클라이언트가 포착하여 사용자에게 다시 시도하기 전에 잠시 기다리라고 알릴 수 있는 오류를 throw합니다.
+
+`limit`와 `check`의 차이점은 `limit`는 토큰을 즉시 소비하는 반면 `check`는 한도가 초과되는지만 확인한다는 것입니다. 총 사용량으로 요청이 완료되면 실제로 토큰을 사용된 것으로 표시합니다.
+
+### 2단계: 생성 후 사용량 추적
+
+메시지 전송 빈도에 대한 속도 제한은 짧은 기간 내에 많은 메시지가 전송되는 것을 방지하는 좋은 방법이지만 각 메시지는 매우 긴 응답을 생성하거나 많은 컨텍스트 토큰을 사용할 수 있습니다. 이를 위해 토큰 사용량을 자체 속도 제한으로 추적합니다.
+
+AI가 응답을 생성한 후 총 사용량을 사용하여 토큰을 사용된 것으로 표시합니다. 생성이 추정된 것보다 더 많은 토큰을 사용한 경우 일시적으로 음수 잔액을 허용하기 위해 `reserve: true`를 사용합니다. 여기서 "예약"은 허용된 것을 넘어 토큰을 할당하는 것을 의미합니다. 일반적으로 이것은 미리 수행되어 미리 예약할 수 있는 큰 요청에 대한 용량을 "예약"합니다. 이 경우 이미 소비된 용량을 표시합니다. 이렇게 하면 "부채"가 지불될 때까지 향후 요청이 시작되지 않습니다.
+
+에이전트 컴포넌트를 사용할 때 AI가 응답을 생성한 후 호출되는 "usageHandler"에서 이를 수행할 수 있습니다.
+
+```ts
+import { Agent, type Config } from "@convex-dev/rate-limiter";
+
+const sharedConfig = {
+  usageHandler: async (ctx, { usage, userId }) => {
+    if (!userId) {
+      return;
+    }
+    // We consume the token usage here, once we know the full usage.
+    // This is too late for the first generation, but prevents further requests
+    // until we've paid off that debt.
+    await rateLimiter.limit(ctx, "tokenUsage", {
+      key: userId,
+      // You could weight different kinds of tokens differently here.
+      count: usage.totalTokens,
+      // Reserving the tokens means it won't fail here, but will allow it
+      // to go negative, disallowing further requests at the `check` call below.
+      reserve: true,
+    });
+  },
+} satisfies Config;
+
+// use it in your agent definitions
+const agent = new Agent(components.agent, {
+  name,
+  languageModel,
+  ...sharedConfig,
+});
+```
+
+여기서 "트릭"은 사용자가 단일 요청에 대해 한도를 초과하는 요청을 할 수 있지만 다른 요청을 위해 토큰을 누적하기 위해 더 오래 기다려야 한다는 것입니다. 따라서 시간이 지남에 따라 평균적으로 속도 제한보다 더 많이 소비할 수 없습니다.
+
+이것은 추정으로 미리 요청을 방지하려는 실용주의와 실제 사용량을 속도 제한하는 것 사이의 균형을 맞춥니다.
+
+## 클라이언트 측 처리
+
+클라이언트 측 코드는 [RateLimiting.tsx](https://github.com/get-convex/agent/blob/main/example/ui/rate_limiting/RateLimiting.tsx)를 참조하세요.
+
+클라이언트가 요청을 허용해야 하는지에 대한 최종 권한은 아니지만, 속도 제한을 확인하는 동안 대기 메시지를 표시하고 속도 제한이 초과되면 오류 메시지를 표시할 수 있습니다. 이렇게 하면 사용자가 실패할 가능성이 높은 시도를 하는 것을 방지합니다.
+
+속도 제한을 확인하기 위해 `useRateLimit` 훅을 사용합니다. 전체 [속도 제한 문서는 여기](https://www.convex.dev/components/rate-limiter)를 참조하세요.
+
+```ts
+import { useRateLimit } from "@convex-dev/rate-limiter/react";
+//...
+const { status } = useRateLimit(api.example.getRateLimit);
+```
+
+`convex/example.ts`에서 `getRateLimit`를 노출합니다:
+
+```ts
+export const { getRateLimit, getServerTime } = rateLimiter.hookAPI<DataModel>(
+  "sendMessage",
+  { key: (ctx) => getAuthUserId(ctx) },
+);
+```
+
+속도 제한을 확인하는 동안 대기 메시지 표시:
+
+```ts
+{status && !status.ok && (
+    <div className="text-xs text-gray-500 text-center">
+    <p>Message sending rate limit exceeded.</p>
+    <p>
+        Try again after <Countdown ts={status.retryAt} />
+    </p>
+    </div>
+)}
+```
+
+속도 제한이 초과되면 오류 메시지 표시:
+
+```ts
+import { isRateLimitError } from "@convex-dev/rate-limiter";
+
+// in a button handler
+await submitQuestion({ question, threadId }).catch((e) => {
+  if (isRateLimitError(e)) {
+    toast({
+      title: "Rate limit exceeded",
+      description: `Rate limit exceeded for ${e.data.name}.
+          Try again after ${getRelativeTime(Date.now() + e.data.retryAfter)}`,
+    });
+  }
+});
+```
+
+## 토큰 추정
+
+예제에는 간단한 토큰 추정 함수가 포함되어 있습니다:
+
+```ts
+import { QueryCtx } from "./_generated/server";
+import { fetchContextMessages } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+// This is a rough estimate of the tokens that will be used.
+// It's not perfect, but it's a good enough estimate for a pre-generation check.
+export async function estimateTokens(
+  ctx: QueryCtx,
+  threadId: string | undefined,
+  question: string,
+) {
+  // Assume roughly 4 characters per token
+  const promptTokens = question.length / 4;
+  // Assume a longer non-zero reply
+  const estimatedOutputTokens = promptTokens * 3 + 1;
+  const latestMessages = await fetchContextMessages(ctx, components.agent, {
+    threadId,
+    searchText: question,
+    contextOptions: { recentMessages: 2 },
+  });
+  // Our new usage will roughly be the previous tokens + the question.
+  // The previous tokens include the tokens for the full message history and
+  // output tokens, which will be part of our new history.
+  const lastUsageMessage = latestMessages
+    .reverse()
+    .find((message) => message.usage);
+  const lastPromptTokens = lastUsageMessage?.usage?.totalTokens ?? 1;
+  return lastPromptTokens + promptTokens + estimatedOutputTokens;
+}
+```

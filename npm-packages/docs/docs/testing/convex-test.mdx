@@ -1,0 +1,411 @@
+---
+title: convex-test
+sidebar_label: convex-test
+sidebar_position: 100
+description: "함수의 빠른 자동화 테스트를 위한 Convex 백엔드 모의 객체"
+---
+
+`convex-test` 라이브러리는 JavaScript로 Convex 백엔드의 모의 구현을 제공합니다. 이를 통해 [함수](/functions.mdx)의 로직을 빠르게 자동화 테스트할 수 있습니다.
+
+**예제:** 이 라이브러리에는 사용 예제를 확인할 수 있는 [테스트 스위트](https://github.com/get-convex/convex-test/tree/main/convex)가 포함되어 있습니다.
+
+## 시작하기
+
+<StepByStep>
+
+  <Step title="테스트 의존성 설치">
+    [Vitest](https://vitest.dev/)와 [`convex-test`](https://www.npmjs.com/package/convex-test) 라이브러리를 설치합니다.
+
+    ```sh
+    npm install --save-dev convex-test vitest @edge-runtime/vm
+    ```
+
+  </Step>
+
+  <Step title="NPM 스크립트 설정">
+
+    `package.json`에 다음 스크립트를 추가합니다
+
+    ```json title="package.json"
+    "scripts": {
+      "test": "vitest",
+      "test:once": "vitest run",
+      "test:debug": "vitest --inspect-brk --no-file-parallelism",
+      "test:coverage": "vitest run --coverage --coverage.reporter=text",
+    }
+    ```
+
+  </Step>
+
+  <Step title="Vitest 구성">
+
+    테스트 환경이 Convex 런타임과 더 잘 일치하도록 하고, 더 나은 의존성 추적을 위해 테스트 라이브러리를 인라인으로 만들기 위해 <JSDialectFileName name="vitest.config.mts" /> 파일을 추가합니다.
+
+    ```ts title="vitest.config.mts"
+    import { defineConfig } from "vitest/config";
+
+    export default defineConfig({
+      test: {
+        environment: "edge-runtime",
+        server: { deps: { inline: ["convex-test"] } },
+      },
+    });
+    ```
+
+  </Step>
+
+  <Step title="테스트 파일 추가">
+
+    `convex` 폴더에 <JSDialectFileName name=".test.ts" />로 끝나는 파일을 추가합니다
+
+    예제 테스트는 `api.messages.send` 뮤테이션을 두 번 호출하고, `api.messages.list` 쿼리가 예상 결과를 반환하는지 확인합니다.
+
+    ```ts title="convex/messages.test.ts"
+    import { convexTest } from "convex-test";
+    import { expect, test } from "vitest";
+    import { api } from "./_generated/api";
+    import schema from "./schema";
+
+    test("sending messages", async () => {
+      const t = convexTest(schema);
+      await t.mutation(api.messages.send, { body: "Hi!", author: "Sarah" });
+      await t.mutation(api.messages.send, { body: "Hey!", author: "Tom" });
+      const messages = await t.query(api.messages.list);
+      expect(messages).toMatchObject([
+        { body: "Hi!", author: "Sarah" },
+        { body: "Hey!", author: "Tom" }
+      ]);
+    });
+    ```
+
+  </Step>
+
+  <Step title="테스트 실행">
+
+    `npm run test`로 테스트를 시작합니다. 테스트 파일이나 함수를 변경하면 테스트가 자동으로 다시 실행됩니다.
+
+    ```sh
+    npm run test
+    ```
+
+  </Step>
+
+</StepByStep>
+
+Vitest나 Jest에 익숙하지 않다면 먼저 [Vitest Getting Started 문서](https://vitest.dev/guide)를 읽어보세요.
+
+## `convexTest`
+
+이 라이브러리는 각 테스트의 시작 부분에서 호출해야 하는 `convexTest` 함수를 내보냅니다. 이 함수는 관례적으로 `t` 변수에 저장되는 객체를 반환하며, 이 객체는 Convex 함수를 실행하기 위한 메서드를 제공합니다.
+
+프로젝트에서 [스키마](/database/schemas.mdx)를 사용하는 경우 `convexTest` 함수에 전달해야 합니다:
+
+```ts title="convex/myFunctions.test.ts"
+import { convexTest } from "convex-test";
+import { test } from "vitest";
+import schema from "./schema";
+
+test("some behavior", async () => {
+  const t = convexTest(schema);
+  // use `t`...
+});
+```
+
+테스트가 스키마 검증을 올바르게 구현하고 [`t.run`](#setting-up-and-inspecting-data-and-storage-with-trun)의 올바른 타이핑을 위해 스키마를 전달하는 것이 필요합니다.
+
+스키마가 없는 경우 인수 없이 `convexTest()`를 호출합니다.
+
+## `t.query`, `t.mutation`, `t.action`으로 함수 호출하기
+
+테스트는 프로젝트의 공개 및 내부 Convex [함수](/functions.mdx)를 호출할 수 있습니다:
+
+```ts title="convex/myFunctions.test.ts"
+import { convexTest } from "convex-test";
+import { test } from "vitest";
+import { api, internal } from "./_generated/api";
+
+test("functions", async () => {
+  const t = convexTest();
+  const x = await t.query(api.myFunctions.myQuery, { a: 1, b: 2 });
+  const y = await t.query(internal.myFunctions.internalQuery, { a: 1, b: 2 });
+  const z = await t.mutation(api.myFunctions.mutateSomething, { a: 1, b: 2 });
+  const w = await t.mutation(internal.myFunctions.mutateSomething, { a: 1 });
+  const u = await t.action(api.myFunctions.doSomething, { a: 1, b: 2 });
+  const v = await t.action(internal.myFunctions.internalAction, { a: 1, b: 2 });
+});
+```
+
+## `t.run`으로 데이터 및 스토리지 설정 및 검사하기
+
+때로는 프로젝트에서 선언된 함수 없이 테스트에서 직접 모의 데이터베이스나 [파일 스토리지](/file-storage.mdx)에 [쓰기](/database/writing-data.mdx)를 하고 싶을 수 있습니다. 모의 백엔드에서 읽고 쓸 수 있는 `ctx`를 제공받는 핸들러를 받는 `t.run` 메서드를 사용할 수 있습니다:
+
+```ts title="convex/tasks.test.ts"
+import { convexTest } from "convex-test";
+import { expect, test } from "vitest";
+
+test("functions", async () => {
+  const t = convexTest();
+  const firstTask = await t.run(async (ctx) => {
+    await ctx.db.insert("tasks", { text: "Eat breakfast" });
+    return await ctx.db.query("tasks").first();
+  });
+  expect(firstTask).toMatchObject({ text: "Eat breakfast" });
+});
+```
+
+## `t.fetch`로 HTTP 액션 테스트하기
+
+테스트는 라우터에 등록된 [HTTP 액션](/functions/http-actions.mdx)을 호출할 수 있습니다:
+
+```ts title="convex/http.test.ts"
+import { convexTest } from "convex-test";
+import { test } from "vitest";
+
+test("functions", async () => {
+  const t = convexTest();
+  const response = await t.fetch("/some/path", { method: "POST" });
+});
+```
+
+전역 `fetch` 함수를 모의 객체로 만들어도 `t.fetch`에는 영향을 미치지 않지만, `fetch` 모의 객체에서 `t.fetch`를 사용하여 HTTP 액션으로 라우팅할 수 있습니다.
+
+## 예약된 함수 테스트하기
+
+순수 JavaScript로 실행되는 모의 구현을 사용하는 한 가지 장점은 Vitest 테스트 환경에서 시간을 제어할 수 있다는 것입니다. [예약된 함수](/scheduling/scheduled-functions.mdx)에 의존하는 구현을 테스트하려면 [Vitest의 가짜 타이머](https://vitest.dev/guide/mocking.html#timers)를 `t.finishInProgressScheduledFunctions`와 함께 사용합니다:
+
+```ts title="convex/scheduling.test.ts"
+import { convexTest } from "convex-test";
+import { expect, test, vi } from "vitest";
+import { api } from "./_generated/api";
+import schema from "./schema";
+
+test("mutation scheduling action", async () => {
+  // Enable fake timers
+  vi.useFakeTimers();
+
+  const t = convexTest(schema);
+
+  // Call a function that schedules a mutation or action
+  const scheduledFunctionId = await t.mutation(
+    api.scheduler.mutationSchedulingAction,
+    { delayMs: 10000 },
+  );
+
+  // Advance the mocked time
+  vi.advanceTimersByTime(5000);
+
+  // Advance the mocked time past the scheduled time of the function
+  vi.advanceTimersByTime(6000);
+
+  // Or run all currently pending timers
+  vi.runAllTimers();
+
+  // At this point the scheduled function will be `inProgress`,
+  // now wait for it to finish
+  await t.finishInProgressScheduledFunctions();
+
+  // Assert that the scheduled function succeeded or failed
+  const scheduledFunctionStatus = t.run(async (ctx) => {
+    return await ctx.db.get(scheduledFunctionId);
+  });
+  expect(scheduledFunctionStatus).toMatchObject({ state: { kind: "success" } });
+
+  // Reset to normal `setTimeout` etc. implementation
+  vi.useRealTimers();
+});
+```
+
+뮤테이션이 액션을 예약하고, 그 액션이 또 다른 액션을 예약하는 것과 같이 여러 예약된 함수의 체인이 있는 경우, `t.finishAllScheduledFunctions`를 사용하여 재귀적으로 예약된 함수를 포함한 모든 예약된 함수가 완료될 때까지 기다릴 수 있습니다:
+
+```ts title="convex/chainedScheduling.test.ts"
+import { convexTest } from "convex-test";
+import { expect, test, vi } from "vitest";
+import { api } from "./_generated/api";
+import schema from "./schema";
+
+test("mutation scheduling action scheduling action", async () => {
+  // Enable fake timers
+  vi.useFakeTimers();
+
+  const t = convexTest(schema);
+
+  // Call a function that schedules a mutation or action
+  await t.mutation(api.scheduler.mutationSchedulingActionSchedulingAction);
+
+  // Wait for all scheduled functions, repeatedly
+  // advancing time and waiting for currently in-progress
+  // functions to finish
+  await t.finishAllScheduledFunctions(vi.runAllTimers);
+
+  // Assert the resulting state after all scheduled functions finished
+  const createdTask = t.run(async (ctx) => {
+    return await ctx.db.query("tasks").first();
+  });
+  expect(createdTask).toMatchObject({ author: "AI" });
+
+  // Reset to normal `setTimeout` etc. implementation
+  vi.useRealTimers();
+});
+```
+
+[이 파일](https://github.com/get-convex/convex-test/blob/main/convex/scheduler.test.ts)에서 더 많은 예제를 확인하세요.
+
+## `t.withIdentity`로 인증 테스트하기
+
+현재 [인증된](/auth.mdx) 사용자 신원에 의존하는 함수를 테스트하려면 주어진 [사용자 신원 속성](/api/interfaces/server.UserIdentity)을 가진 `t` 접근자 버전을 생성할 수 있습니다. 제공하지 않으면 `issuer`, `subject`, `tokenIdentifier`가 자동으로 생성됩니다:
+
+```ts title="convex/tasks.test.ts"
+import { convexTest } from "convex-test";
+import { expect, test } from "vitest";
+import { api } from "./_generated/api";
+import schema from "./schema";
+
+test("authenticated functions", async () => {
+  const t = convexTest(schema);
+
+  const asSarah = t.withIdentity({ name: "Sarah" });
+  await asSarah.mutation(api.tasks.create, { text: "Add tests" });
+
+  const sarahsTasks = await asSarah.query(api.tasks.list);
+  expect(sarahsTasks).toMatchObject([{ text: "Add tests" }]);
+
+  const asLee = t.withIdentity({ name: "Lee" });
+  const leesTasks = await asLee.query(api.tasks.list);
+  expect(leesTasks).toEqual([]);
+});
+```
+
+## `fetch` 호출 모의 객체로 만들기
+
+Vitest의 [vi.stubGlobal](https://vitest.dev/guide/mocking.html#globals) 메서드를 사용할 수 있습니다:
+
+```ts title="convex/ai.test.ts"
+import { expect, test, vi } from "vitest";
+import { convexTest } from "../index";
+import { api } from "./_generated/api";
+import schema from "./schema";
+
+test("ai", async () => {
+  const t = convexTest(schema);
+
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async () => ({ text: async () => "I am the overlord" }) as Response),
+  );
+
+  const reply = await t.action(api.messages.sendAIMessage, { prompt: "hello" });
+  expect(reply).toEqual("I am the overlord");
+
+  vi.unstubAllGlobals();
+});
+```
+
+## 결과 검증하기
+
+Vitest의 [Expect](https://vitest.dev/api/expect.html) 참조를 확인하세요.
+
+[`toMatchObject()`](https://vitest.dev/api/expect.html#tomatchobject)는 모든 객체 필드를 나열할 필요 없이 결과의 형태를 검증할 때 특히 유용합니다.
+
+### 오류 검증하기
+
+함수가 예외를 발생시키는지 확인하려면 [`.rejects.toThrowError()`](https://vitest.dev/api/expect.html#tothrowerror)를 사용합니다:
+
+```ts title="convex/messages.test.ts"
+import { convexTest } from "convex-test";
+import { expect, test } from "vitest";
+import { api } from "./_generated/api";
+import schema from "./schema";
+
+test("messages validation", async () => {
+  const t = convexTest(schema);
+  expect(async () => {
+    await t.mutation(api.messages.send, { body: "", author: "James" });
+  }).rejects.toThrowError("Empty message body is not allowed");
+});
+```
+
+## 테스트 커버리지 측정하기
+
+테스트가 제공하는 코드 커버리지를 출력할 수 있습니다. "테스트가 내 코드의 얼마나 많은 부분을 커버하는가"라는 질문에 답하는 것 외에도, 테스트가 실제로 원하는 코드를 실행하고 있는지 확인하는 데 도움이 됩니다.
+
+<CodeWithCopyButton text="npm run test:coverage" />를 실행합니다. 처음 실행할 때 필요한 의존성을 설치하라는 메시지가 표시됩니다.
+
+<p style={{ textAlign: "center" }}>
+  <img
+    src="/screenshots/testing_coverage.png"
+    alt="example coverage printout"
+    width={700}
+  />
+</p>
+
+## 테스트 디버깅하기
+
+실행 중인 테스트에 디버거를 연결할 수 있습니다. Vitest [Debugging 문서](https://vitest.dev/guide/debugging.html)를 읽은 다음 <CodeWithCopyButton text="npm run test:debug" />를 사용합니다.
+
+## 여러 환경
+
+Vitest를 사용하여 Convex 함수와 React 프론트엔드를 모두 테스트하려는 경우, [environmentMatchGlobs](https://vitest.dev/config/#environmentmatchglobs)를 통해 테스트 파일 위치에 따라 여러 Vitest 환경을 사용할 수 있습니다:
+
+```ts title="vitest.config.mts"
+import { defineConfig } from "vitest/config";
+
+export default defineConfig({
+  test: {
+    environmentMatchGlobs: [
+      // all tests in convex/ will run in edge-runtime
+      ["convex/**", "edge-runtime"],
+      // all other tests use jsdom
+      ["**", "jsdom"],
+    ],
+    server: { deps: { inline: ["convex-test"] } },
+  },
+});
+```
+
+## 사용자 정의 `convex/` 폴더 이름 또는 위치
+
+프로젝트에서 `convex.json`의 `convex/` 폴더에 대해 [다른 이름이나 위치가 구성](/production/project-configuration.mdx#changing-the-convex-folder-name-or-location)되어 있는 경우, [`import.meta.glob`](https://vitejs.dev/guide/features#glob-import)를 호출하고 결과를 `convexTest`의 두 번째 인수로 전달해야 합니다.
+
+`import.meta.glob`에 대한 인수는 Convex 함수가 포함된 모든 파일과 일치하는 glob 패턴이어야 합니다. 경로는 `import.meta.glob`가 호출되는 테스트 파일을 기준으로 합니다. 이것을 사용자 정의 함수 폴더의 한 곳에서 수행하는 것이 가장 좋습니다:
+
+```ts title="src/convex/test.setup.ts"
+/// <reference types="vite/client" />
+export const modules = import.meta.glob("./**/!(*.*.*)*.*s");
+```
+
+이 예제 glob 패턴은 `src/convex` 폴더와 그 하위 폴더에 있는 `s`로 끝나는 단일 확장자(`js` 또는 `ts` 등)를 가진 모든 파일을 포함합니다.
+
+테스트에서 결과를 사용합니다:
+
+```ts title="src/convex/messages.test.ts"
+import { convexTest } from "convex-test";
+import { test } from "vitest";
+import schema from "./schema";
+import { modules } from "./test.setup";
+
+test("some behavior", async () => {
+  const t = convexTest(schema, modules);
+  // use `t`...
+});
+```
+
+## 제한사항
+
+`convex-test`는 모의 구현일 뿐이므로 실제 Convex 백엔드의 많은 동작을 가지고 있지 않습니다. 그럼에도 불구하고 함수의 로직을 테스트하고 코드 변경으로 인한 회귀를 포착하는 데 도움이 될 것입니다.
+
+모의 객체가 다른 몇 가지 방법:
+
+- 오류 메시지 내용. 실제 백엔드가 발생시키는 오류 메시지의 내용에 의존하는 제품 로직을 작성해서는 안 됩니다. 오류 메시지는 항상 변경될 수 있습니다.
+- 제한. 모의 객체는 크기 및 시간 [제한](/production/state/limits.mdx)을 적용하지 않습니다.
+- ID 형식. 코드는 문서 또는 스토리지 ID 형식에 의존해서는 안 됩니다.
+- 런타임 내장 기능. 대부분의 함수는 [Convex 기본 런타임](/functions/runtimes.mdx)용으로 작성되지만, Vitest는 유사하지만 Convex 런타임과 다를 수 있는 Vercel의 Edge Runtime의 모의 객체를 사용합니다. 새 코드가 Convex 런타임에서 사용할 수 없는 내장 기능을 사용하지 않는지 확인하려면 항상 수동으로 테스트해야 합니다.
+- 일부 기능은 단순화된 의미 체계만 가지고 있습니다:
+  - [텍스트 검색](/search.mdx)은 검색된 문자열의 최소한 하나의 단어가 접두사인 단어를 포함하는 모든 문서를 반환합니다. 퍼지 검색을 구현하지 않으며 관련성에 따라 결과를 정렬하지 않습니다.
+  - [벡터 검색](/search/vector-search.mdx)은 코사인 유사도로 정렬된 결과를 반환하지만, 구현에서 효율적인 벡터 인덱스를 사용하지 않습니다.
+  - [크론 작업](/scheduling/cron-jobs.mdx)에 대한 지원이 없으며, 테스트에서 함수를 수동으로 트리거해야 합니다.
+
+실제 Convex 백엔드에서 실행되는 함수를 테스트하려면 [Testing Local Backend](/testing/convex-backend.mdx)를 확인하세요.
+
+## CI
+
+공유 원격 머신에서 테스트를 실행하려면 [Continuous Integration](/testing/ci.mdx)을 참조하세요.

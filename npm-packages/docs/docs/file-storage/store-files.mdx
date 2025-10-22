@@ -1,0 +1,35 @@
+---
+title: "생성된 파일 저장하기"
+sidebar_label: "저장"
+sidebar_position: 2
+description: "Convex 액션에서 생성된 파일 저장하기"
+---
+
+import StoreImageTS from "!!raw-loader!@site/../private-demos/snippets/convex/images.ts";
+import StoreImageJS from "!!raw-loader!@site/../private-demos/snippets/convex/imagesJS.js";
+
+파일은 클라이언트에서 Convex로 업로드하여 직접 저장할 수 있습니다. [업로드](/file-storage/upload-files.mdx)를 참조하세요.
+
+또는 파일을 [액션](/functions/actions.mdx)과 [HTTP 액션](/functions/http-actions.mdx)에서 가져오거나 생성한 후 저장할 수도 있습니다. 예를 들어 사용자 프롬프트를 기반으로 이미지를 생성하는 타사 API를 호출한 다음 해당 이미지를 Convex에 저장할 수 있습니다.
+
+**예시:**
+[Dall-E 스토리지 & 액션](https://github.com/get-convex/convex-demos/tree/main/dall-e-storage-action)
+
+## 액션에서 파일 저장하기
+
+액션에서 파일을 저장하는 것은 [HTTP 액션을 통한 파일 업로드](/file-storage/upload-files.mdx#uploading-files-via-an-http-action)와 유사합니다.
+
+액션은 다음 단계를 수행합니다:
+
+1. 이미지를 가져오거나 생성합니다.
+2. [`storage.store()`](/api/interfaces/server.StorageActionWriter#store)를 사용하여 이미지를 저장하고 스토리지 ID를 받습니다.
+3. 뮤테이션을 통해 스토리지 ID를 데이터 모델에 저장합니다.
+
+스토리지 ID는 `"_storage"` 시스템 테이블의 문서에 해당하므로([메타데이터](/file-storage/file-metadata.mdx) 참조), `v.id("_storage")` 검증자를 사용하여 검증할 수 있으며 TypeScript에서 `Id<"_storage">`로 타입을 지정할 수 있습니다.
+
+<TSAndJSSnippet
+  title="convex/images.ts"
+  sourceTS={StoreImageTS}
+  sourceJS={StoreImageJS}
+  highlightPatterns={["fetch", "storage.store", "runMutation\\("]}
+/>

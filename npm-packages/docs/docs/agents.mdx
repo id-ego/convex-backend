@@ -1,0 +1,98 @@
+---
+title: "AI Agents"
+sidebar_position: 100
+description: "Building AI Agents with Convex"
+---
+
+## Convex로 AI Agents 구축하기
+
+Convex는 컴포넌트와 기존 Convex 기능을 활용하여 에이전트 AI 애플리케이션을 구축할 수 있는 강력한 빌딩 블록을 제공합니다.
+
+Convex를 사용하면 사용자의 반응성과 상호작용성을 잃지 않으면서 장기 실행되는 에이전트 워크플로우를 UI에서 분리할 수 있습니다. LLM과의 메시지 기록은 기본적으로 저장되고 모든 클라이언트에서 실시간으로 업데이트되며, 설정이 아닌 코드를 사용하여 다른 Convex 기능과 쉽게 조합할 수 있습니다.
+
+## Agent Component
+
+Agent 컴포넌트는 AI 에이전트를 구축하기 위한 핵심 빌딩 블록입니다. 이 컴포넌트는 스레드와 메시지를 관리하며, 에이전트들은 정적 또는 동적 워크플로우에서 협력할 수 있습니다.
+
+<div className="center-image" style={{ maxWidth: "560px" }}>
+  <iframe
+    width="560"
+    height="315"
+    src="https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd"
+    title="Agent Component YouTube Video"
+    frameborder="0"
+    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+    referrerpolicy="strict-origin-when-cross-origin"
+    allowfullscreen
+  ></iframe>
+</div>
+[Agent Component YouTube
+Video](https://www.youtube.com/embed/tUKMPUlOCHY?si=ce-M8pt6EWDZ8tfd)
+
+### 핵심 개념
+
+- Agents는 관련된 모델, 프롬프트 및 [도구](/agents/tools)와 함께 LLM 프롬프팅을 조직화합니다. 텍스트와 객체를 모두 생성하고 스트리밍할 수 있습니다.
+- Agents는 모든 Convex 액션에서 사용할 수 있으므로, 정적 설정이 아닌 코드를 사용함으로써 얻는 모든 추상화 이점과 함께 다른 비즈니스 로직과 함께 에이전트 코드를 작성할 수 있습니다.
+- [스레드](/agents/threads)는 [메시지](/agents/messages)를 저장하며 여러 사용자와 에이전트([인간 에이전트](/agents/human-agents) 포함)가 공유할 수 있습니다.
+- [대화 컨텍스트](/agents/context)는 메시지에 대한 내장 하이브리드 벡터/텍스트 검색을 포함하여 각 LLM 호출에 자동으로 포함됩니다.
+
+### 고급 기능
+
+- [워크플로우](/agents/workflows)를 사용하면 에이전트와 사용자에 걸쳐 안정적이고 신뢰할 수 있게 진행할 수 있는 다단계 작업을 구축할 수 있습니다.
+- [RAG](/agents/rag) 기법은 [RAG Component](https://www.convex.dev/components/rag)를 사용하여 사전 프롬프트 증강 또는 도구 호출로도 지원됩니다.
+- [파일](/agents/files)은 [파일 스토리지](/file-storage)에 자동 저장과 함께 채팅 기록에 사용할 수 있습니다.
+
+### 디버깅 및 추적
+
+- [디버깅](/agents/debugging)이 지원되며, [에이전트 플레이그라운드](/agents/playground)에서 모든 메타데이터를 검사하고 프롬프트 및 컨텍스트 설정을 반복할 수 있습니다.
+- [사용량 추적](/agents/usage-tracking)은 사용자 및 팀에 대한 사용량 청구를 가능하게 합니다.
+- [속도 제한](/agents/rate-limiting)은 사용자가 에이전트와 상호작용할 수 있는 속도를 제어하고 LLM 제공자의 제한을 초과하지 않도록 도와줍니다.
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+    href: "/agents/getting-started",
+    label: "Build your first Agent",
+  }}
+/>
+
+다음을 읽어 동기에 대해 자세히 알아보세요:
+[AI Agents with Built-in Memory](https://stack.convex.dev/ai-agents).
+
+샘플 코드:
+
+```typescript
+import { Agent } from "@convex-dev/agents";
+import { openai } from "@ai-sdk/openai";
+import { components } from "./_generated/api";
+import { action } from "./_generated/server";
+
+// Define an agent
+const supportAgent = new Agent(components.agent, {
+  name: "Support Agent",
+  chat: openai.chat("gpt-4o-mini"),
+  instructions: "You are a helpful assistant.",
+  tools: { accountLookup, fileTicket, sendEmail },
+});
+
+// Use the agent from within a normal action:
+export const createThread = action({
+  args: { prompt: v.string() },
+  handler: async (ctx, { prompt }) => {
+    const { threadId, thread } = await supportAgent.createThread(ctx);
+    const result = await thread.generateText({ prompt });
+    return { threadId, text: result.text };
+  },
+});
+
+// Pick up where you left off, with the same or a different agent:
+export const continueThread = action({
+  args: { prompt: v.string(), threadId: v.string() },
+  handler: async (ctx, { prompt, threadId }) => {
+    // This includes previous message history from the thread automatically.
+    const { thread } = await anotherAgent.continueThread(ctx, { threadId });
+    const result = await thread.generateText({ prompt });
+    return result.text;
+  },
+});
+```

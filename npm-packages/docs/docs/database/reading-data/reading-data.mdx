@@ -1,0 +1,222 @@
+---
+title: "데이터 읽기"
+sidebar_position: 3
+description: "Convex 데이터베이스 테이블에서 데이터 쿼리 및 읽기"
+---
+
+import getExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataDbGet.ts";
+import queryExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataDbQuery.ts";
+import averageExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataAverage.ts";
+import groupByExampleTS from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataGroupByTS.ts";
+import groupByExampleJS from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataGroupByJS.js";
+import joinExample from "!!raw-loader!@site/../private-demos/snippets/convex/readingDataJoin.ts";
+
+[쿼리](/functions/query-functions.mdx)와 [뮤테이션](/functions/mutation-functions.mdx) 함수는 _문서 ID_와 _문서 쿼리_를 사용하여 데이터베이스 테이블에서 데이터를 읽을 수 있습니다.
+
+## 단일 문서 읽기
+
+단일 문서의 ID가 주어지면 [`db.get`](/api/interfaces/server.GenericDatabaseReader#get) 메서드로 해당 데이터를 읽을 수 있습니다:
+
+<TSAndJSSnippet
+  title="convex/tasks.ts"
+  sourceTS={getExample}
+  sourceJS={getExample}
+  highlightPatterns={["db.get"]}
+/>
+
+**참고**: 의도한 테이블 이외의 테이블에서 데이터를 노출하지 않도록 위 예제와 같이 `v.id` 유효성 검사기를 사용해야 합니다.
+
+## 문서 쿼리하기
+
+문서 쿼리는 항상 [`db.query`](/api/interfaces/server.GenericDatabaseReader#query) 메서드로 쿼리할 테이블을 선택하는 것으로 시작합니다:
+
+<TSAndJSSnippet
+  title="convex/tasks.ts"
+  sourceTS={queryExample}
+  sourceJS={queryExample}
+  highlightPatterns={["db.query"]}
+/>
+
+그런 다음 다음을 수행할 수 있습니다:
+
+1. 필터링
+2. 정렬
+3. 결과 `await`
+
+아래 예제에서 이것이 어떻게 작동하는지 살펴보겠습니다.
+
+## 쿼리 필터링하기
+
+Convex에서 필터링하는 가장 좋은 방법은 인덱스를 사용하는 것입니다. 인덱스는 조회 속도를 높이기 위해 데이터베이스에 특별한 내부 구조를 구축합니다.
+
+인덱스를 사용하는 두 가지 단계가 있습니다:
+
+1. `convex/schema.ts` 파일에서 인덱스를 정의합니다.
+2. `withIndex()` 구문으로 쿼리합니다.
+
+### 1. 인덱스 정의하기
+
+Convex 스키마를 만드는 방법에 익숙하지 않다면 [스키마 문서](/database/schemas.mdx)를 읽어보세요.
+
+채팅 앱을 구축하고 특정 채널의 모든 메시지를 가져온다고 가정해 봅시다. 스키마에서 `.index()` 메서드를 사용하여 `messages` 테이블에 `by_channel`이라는 새 인덱스를 정의할 수 있습니다.
+
+```ts noDialect title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+// 인덱스가 있는 messages 테이블을 정의합니다.
+export default defineSchema({
+  messages: defineTable({
+    channel: v.id("channels"),
+    body: v.string(),
+    user: v.id("users"),
+    // highlight-next-line
+  }).index("by_channel", ["channel"]),
+});
+```
+
+### 2. 인덱스로 쿼리 필터링하기
+
+이제 쿼리 함수에서 `by_channel` 인덱스를 사용하여 `messages` 테이블을 필터링할 수 있습니다.
+
+```ts
+const messages = await ctx.db
+  .query("messages")
+  // highlight-next-line
+  .withIndex("by_channel", (q) => q.eq("channel", channel))
+  .collect();
+```
+
+Convex에서는 데이터베이스가 인덱스를 사용하도록 하려면 `withIndex()` 구문을 명시적으로 사용해야 합니다. 이는 데이터베이스가 휴리스틱을 기반으로 암시적으로 인덱스를 사용하도록 선택하는 전통적인 SQL 데이터베이스와 다릅니다. Convex 접근 방식은 장기적으로 예상치 못한 문제를 줄입니다.
+
+여러 필드에 걸쳐 인덱스를 생성하고, 특정 데이터 범위를 쿼리하고, 쿼리 결과의 순서를 변경할 수 있습니다. [전체 인덱스 문서](/database/reading-data/indexes/indexes.md)를 읽어 자세히 알아보세요.
+
+Convex는 또한 테이블을 반복하여 필터와 일치시키는 더 느린 필터링 메커니즘을 지원합니다. 테이블이 작을 것을 알고 있거나(수천 행 정도), 프로토타이핑 중이거나, 인덱스 쿼리를 더 필터링하려는 경우 유용할 수 있습니다. 필터에 대해 [여기](/database/reading-data/filters.mdx)에서 더 읽어보세요.
+
+## 정렬
+
+기본적으로 Convex는 항상 [`_creationTime`](/database/types.md#system-fields)으로 정렬된 문서를 반환합니다.
+
+[`.order("asc" | "desc")`](/api/interfaces/server.Query#order)를 사용하여 순서가 오름차순인지 내림차순인지 선택할 수 있습니다. 순서가 지정되지 않으면 기본값은 오름차순입니다.
+
+```ts
+// 모든 메시지를 오래된 것부터 최신 순으로 가져옵니다.
+const messages = await ctx.db.query("messages").order("asc").collect();
+```
+
+```ts
+// 모든 메시지를 최신부터 오래된 순으로 가져옵니다.
+const messages = await ctx.db.query("messages").order("desc").collect();
+```
+
+`_creationTime`이 아닌 필드로 정렬해야 하고 문서 쿼리가 적은 수의 문서(수천 개가 아닌 수백 개 정도)를 반환하는 경우 JavaScript에서 정렬하는 것을 고려하세요:
+
+```ts
+// 상위 10개의 가장 좋아요를 받은 메시지를 가져옵니다. messages가 상당히 작은 테이블이라고 가정:
+const messages = await ctx.db.query("messages").collect();
+const topTenMostLikedMessages = recentMessages
+  .sort((a, b) => b.likes - a.likes)
+  .slice(0, 10);
+```
+
+더 많은 수의 문서를 반환하는 문서 쿼리의 경우 [인덱스](/database/reading-data/indexes/indexes.md)를 사용하여 성능을 향상시키고 싶을 것입니다. 인덱스를 사용하는 문서 쿼리는 [인덱스의 열을 기반으로 정렬](/database/reading-data/indexes/indexes.md#sorting-with-indexes)되며 느린 테이블 스캔을 피할 수 있습니다.
+
+```ts
+// "by_likes" 인덱스를 사용하여 역대 가장 좋아요를 받은 상위 20개 메시지를 가져옵니다.
+const messages = await ctx.db
+  .query("messages")
+  .withIndex("by_likes")
+  .order("desc")
+  .take(20);
+```
+
+자세한 내용은 [제한](/database/reading-data/indexes/indexes.md#limits)을 참조하세요.
+
+### 다른 타입의 값 정렬
+
+단일 필드는 모든 [Convex 타입](/database/types.md)의 값을 가질 수 있습니다. 인덱싱된 필드에 다른 타입의 값이 있을 때 오름차순 순서는 다음과 같습니다:
+
+값 없음&nbsp;(`undefined`) < Null&nbsp;(`null`) < Int64&nbsp;(`bigint`) < Float64 (`number`) < Boolean&nbsp;(`boolean`) < String&nbsp;(`string`) < Bytes&nbsp;(`ArrayBuffer`) < Array&nbsp;(`Array`) < Object&nbsp;(`Object`)
+
+필터링 비교 연산자 `q.lt()`, `q.lte()`, `q.gt()` 및 `q.gte()`에서도 동일한 순서가 사용됩니다.
+
+## 결과 검색하기
+
+이전 예제의 대부분은 필터와 일치하는 모든 문서를 반환하는 [`.collect()`](/api/interfaces/server.Query#collect) 메서드로 문서 쿼리를 끝냈습니다. 다음은 결과를 검색하기 위한 다른 옵션입니다.
+
+### `n`개의 결과 가져오기
+
+[`.take(n)`](/api/interfaces/server.Query#take)는 쿼리와 일치하는 처음 `n`개의 결과만 선택합니다.
+
+```ts
+const users = await ctx.db.query("users").take(5);
+```
+
+### 첫 번째 결과 찾기
+
+[`.first()`](/api/interfaces/server.Query#first)는 쿼리와 일치하는 첫 번째 문서를 선택하고 문서를 찾지 못한 경우 `null`을 반환합니다.
+
+```ts
+// 해당 이메일 주소를 가진 사용자가 하나만 있을 것으로 예상합니다.
+const userOrNull = await ctx.db
+  .query("users")
+  .withIndex("by_email", (q) => q.eq("email", "test@example.com"))
+  .first();
+```
+
+### 고유한 결과 사용하기
+
+[`.unique()`](/api/interfaces/server.Query#unique)는 쿼리에서 단일 문서를 선택하거나 문서를 찾지 못한 경우 `null`을 반환합니다. 여러 결과가 있으면 예외를 발생시킵니다.
+
+```ts
+// counter 테이블에는 문서가 하나만 있습니다.
+const counterOrNull = await ctx.db.query("counter").unique();
+```
+
+### 결과 페이지 로드하기
+
+[`.paginate(opts)`](/api/interfaces/server.OrderedQuery#paginate)는 결과 페이지를 로드하고 추가 결과를 로드하기 위한 [`Cursor`](/api/modules/server#cursor)를 반환합니다.
+
+자세한 내용은 [페이지네이션 쿼리](/database/pagination.mdx)를 참조하세요.
+
+## 더 복잡한 쿼리
+
+Convex는 테이블에서 문서를 탐색하고 선택하는 몇 가지 간단한 방법을 선호합니다. Convex에는 조인, 집계 또는 그룹화와 같은 복잡한 로직을 위한 특정 쿼리 언어가 없습니다.
+
+대신 JavaScript로 복잡한 로직을 작성할 수 있습니다! Convex는 결과가 일관성 있게 보장됩니다.
+
+### 조인
+
+테이블 조인은 다음과 같을 수 있습니다:
+
+<TSAndJSSnippet
+  title="convex/events.ts"
+  sourceTS={joinExample}
+  sourceJS={joinExample}
+/>
+
+### 집계
+
+다음은 평균을 계산하는 예입니다:
+
+<TSAndJSSnippet
+  title="convex/purchases.ts"
+  sourceTS={averageExample}
+  sourceJS={averageExample}
+/>
+
+> 더 확장 가능한 집계 옵션(예: 빈번한 업데이트나 대용량 테이블 처리)이 필요한 경우 [Sharded Counter](https://www.convex.dev/components/sharded-counter) 또는 [Aggregate](https://www.convex.dev/components/aggregate) 컴포넌트 사용을 고려하세요. 이러한 컴포넌트는 전체 테이블을 반복하지 않고도 높은 처리량의 카운터, 합계 또는 계산을 처리하는 데 도움이 될 수 있습니다.
+
+### 그룹화
+
+다음은 그룹화 및 카운팅 예입니다:
+
+<TSAndJSSnippet
+  title="convex/purchases.ts"
+  sourceTS={groupByExampleTS}
+  sourceJS={groupByExampleJS}
+/>
+
+## 대시보드에서 구문 탐색하기
+
+[사용자 지정 테스트 쿼리 작성](/dashboard/deployments/data.md#writing-custom-queries)을 통해 대시보드에서 위에 설명된 구문을 직접 시도할 수 있습니다.

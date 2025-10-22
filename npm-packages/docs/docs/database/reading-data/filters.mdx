@@ -1,0 +1,184 @@
+---
+title: "필터"
+sidebar_position: 200
+description: "Convex 쿼리에서 문서 필터링하기"
+---
+
+# 필터링
+
+[`filter`](/api/interfaces/server.Query#filter) 메서드를 사용하면 문서 쿼리가 반환하는 문서를 제한할 수 있습니다. 이 메서드는 [`FilterBuilder`](/api/interfaces/server.FilterBuilder)로 구성된 필터를 받아 일치하는 문서만 선택합니다.
+
+아래 예제는 `filter`의 일반적인 사용법 중 일부를 보여줍니다. 사용 가능한 필터링 메서드의 전체 목록은 [참조 문서](/api/interfaces/server.FilterBuilder)에서 확인할 수 있습니다.
+
+특정 키워드가 포함된 문서를 필터링해야 하는 경우 [검색 쿼리](/search/text-search.mdx)를 사용하세요.
+
+<Admonition type="caution" title="대신 인덱스를 사용하세요">
+  필터는 일치하는 문서를 찾기 위해 테이블을 효과적으로 반복합니다.
+  테이블에 수천 개의 행이 있을 때 속도가 느려지거나 함수가
+  [제한](/production/state/limits.mdx)에 도달할 수 있습니다.
+  더 빠르고 데이터베이스 효율적인 쿼리를 위해서는 [인덱스를
+  사용](/database/reading-data/indexes/indexes.md)하세요.
+</Admonition>
+
+### 동등 조건
+
+이 문서 쿼리는 `users` 테이블에서 `doc.name === "Alex"`인 문서를 찾습니다:
+
+```ts
+// 이름이 "Alex"인 모든 사용자를 가져옵니다.
+const usersNamedAlex = await ctx.db
+  .query("users")
+  .filter((q) => q.eq(q.field("name"), "Alex"))
+  .collect();
+```
+
+여기서 `q`는 [`FilterBuilder`](/api/interfaces/server.FilterBuilder) 유틸리티 객체입니다. 지원되는 모든 필터 연산자에 대한 메서드를 포함합니다.
+
+이 필터는 테이블의 모든 문서에서 실행됩니다. 각 문서에 대해 `q.field("name")`은 `name` 속성으로 평가됩니다. 그런 다음 `q.eq`는 이 속성이 `"Alex"`와 같은지 확인합니다.
+
+쿼리가 특정 문서에서 누락된 필드를 참조하면 해당 필드는 `undefined` 값을 갖는 것으로 간주됩니다.
+
+### 비교
+
+필터를 사용하여 필드를 값과 비교할 수도 있습니다. 이 문서 쿼리는 `doc.age >= 18`인 문서를 찾습니다:
+
+```ts
+// 나이가 18세 이상인 모든 사용자를 가져옵니다.
+const adults = await ctx.db
+  .query("users")
+  .filter((q) => q.gte(q.field("age"), 18))
+  .collect();
+```
+
+여기서 `q.gte` 연산자는 첫 번째 인수(`doc.age`)가 두 번째 인수(`18`)보다 크거나 같은지 확인합니다.
+
+다음은 전체 비교 목록입니다:
+
+| 연산자        | 동등한 TypeScript |
+| ------------- | ----------------- |
+| `q.eq(l, r)`  | `l === r`         |
+| `q.neq(l, r)` | `l !== r`         |
+| `q.lt(l, r)`  | `l < r`           |
+| `q.lte(l, r)` | `l <= r`          |
+| `q.gt(l, r)`  | `l > r`           |
+| `q.gte(l, r)` | `l >= r`          |
+
+### 산술
+
+쿼리에 기본 산술을 포함할 수도 있습니다. 이 문서 쿼리는 `carpets` 테이블에서 `doc.height * doc.width > 100`인 문서를 찾습니다:
+
+```ts
+// 면적이 100을 초과하는 모든 카펫을 가져옵니다.
+const largeCarpets = await ctx.db
+  .query("carpets")
+  .filter((q) => q.gt(q.mul(q.field("height"), q.field("width")), 100))
+  .collect();
+```
+
+다음은 전체 산술 연산자 목록입니다:
+
+| 연산자        | 동등한 TypeScript |
+| ------------- | ----------------- |
+| `q.add(l, r)` | `l + r`           |
+| `q.sub(l, r)` | `l - r`           |
+| `q.mul(l, r)` | `l * r`           |
+| `q.div(l, r)` | `l / r`           |
+| `q.mod(l, r)` | `l % r`           |
+| `q.neg(x)`    | `-x`              |
+
+### 연산자 결합하기
+
+`q.and`, `q.or`, `q.not`과 같은 메서드를 사용하여 더 복잡한 필터를 구성할 수 있습니다. 이 문서 쿼리는 `doc.name === "Alex" && doc.age >= 18`인 문서를 찾습니다:
+
+```ts
+// 나이가 18세 이상인 "Alex"라는 이름의 모든 사용자를 가져옵니다.
+const adultAlexes = await ctx.db
+  .query("users")
+  .filter((q) =>
+    q.and(q.eq(q.field("name"), "Alex"), q.gte(q.field("age"), 18)),
+  )
+  .collect();
+```
+
+다음은 `doc.name === "Alex" || doc.name === "Emma"`인 모든 사용자를 찾는 쿼리입니다:
+
+```ts
+// 이름이 "Alex" 또는 "Emma"인 모든 사용자를 가져옵니다.
+const usersNamedAlexOrEmma = await ctx.db
+  .query("users")
+  .filter((q) =>
+    q.or(q.eq(q.field("name"), "Alex"), q.eq(q.field("name"), "Emma")),
+  )
+  .collect();
+```
+
+## 고급 필터링 기법
+
+때로는 필터 구문이 충분히 표현력이 없을 수 있습니다. 예를 들어 태그가 있는 모든 게시물을 수집하고 싶을 수 있습니다. 게시물의 스키마는 다음과 같습니다:
+
+```ts
+export default defineSchema({
+  posts: defineTable({
+    body: v.string(),
+    tags: v.array(v.string()),
+  }),
+});
+```
+
+한 가지 해결 방법은 `collect()` 호출 결과에 필터를 적용하는 것입니다. 이것은 단순히 JavaScript 배열을 필터링하는 것입니다:
+
+```ts
+export const postsWithTag = query({
+  args: { tag: v.string() },
+  handler: async (ctx, args) => {
+    const allPosts = await ctx.db.query("posts").collect();
+    return allPosts.filter((post) => post.tags.includes(args.tag));
+  },
+});
+```
+
+하지만 이것은 먼저 전체 테이블을 읽어야 합니다. 일치하는 첫 번째 결과만 가져오려는 경우 전체 테이블을 읽는 것은 매우 비효율적일 수 있습니다. 대신 JavaScript [`for await...of`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/for-await...of) 구문을 사용하여 한 번에 하나의 문서씩 테이블을 반복할 수 있습니다:
+
+```ts
+export const firstPostWithTag = query({
+  args: { tag: v.string() },
+  handler: (ctx, args) => {
+    for await (const post of db.query("posts")) {
+      if (post.tags.includes(args.tag)) {
+        return post;
+      }
+    }
+  },
+});
+```
+
+이것은 Convex 쿼리가 [JavaScript 이터러블](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Iteration_protocols)이기 때문에 작동합니다.
+
+이 최적화를 사용하더라도 여전히 일치하는 첫 번째 게시물을 찾기 위해 테이블을 반복하고 있으며 함수 제한에 도달할 수 있습니다. 인덱스를 사용하는 것이 여전히 가장 좋은 방법입니다. [인덱스로 태그를 처리하는 방법에 대한 자세한 논의](https://stack.convex.dev/complex-filters-in-convex#optimize-with-indexes)를 읽을 수 있습니다.
+
+## 쿼리 성능 및 제한
+
+위의 대부분의 문서 쿼리 예제는 _전체 테이블 스캔_으로 이어질 수 있습니다. 즉, 문서 쿼리가 요청된 결과를 반환하려면 테이블의 모든 문서를 탐색해야 할 수 있습니다.
+
+이 간단한 예를 살펴보세요:
+
+```ts
+const tasks = await ctx.db.query("tasks").take(5);
+```
+
+이 문서 쿼리는 5개 이상의 문서를 스캔하지 않습니다.
+
+반면에 이 문서 쿼리는:
+
+```ts
+const tasks = await ctx.db
+  .query("tasks")
+  .filter((q) => q.eq(q.field("isCompleted"), true))
+  .first();
+```
+
+`isCompleted: true`인 첫 번째 문서를 찾기 위해 `"tasks"` 테이블의 모든 문서를 탐색해야 할 수 있습니다.
+
+테이블에 수천 개 이상의 문서가 있는 경우 [인덱스](/database/reading-data/indexes/indexes.md)를 사용하여 문서 쿼리 성능을 향상시켜야 합니다. 그렇지 않으면 [읽기/쓰기 제한 오류](/functions/error-handling/error-handling.mdx#readwrite-limit-errors)에 자세히 설명된 강제 제한에 도달할 수 있습니다.
+
+다른 제한에 대한 정보는 [제한](/production/state/limits.mdx)을 참조하세요.

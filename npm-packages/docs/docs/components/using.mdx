@@ -1,0 +1,94 @@
+---
+title: "컴포넌트 사용하기"
+slug: "using-components"
+sidebar_position: 10
+description: "기존 컴포넌트 사용하기"
+---
+
+Convex 컴포넌트는 자체 함수, 스키마 및 데이터, 예약된 함수 및 기타 모든 기본 Convex 기능을 갖춘 자체 샌드박스에서 백엔드에 새로운 기능을 추가합니다.
+
+[디렉토리](https://convex.dev/components)에서 전체 컴포넌트 목록을 볼 수 있습니다. 각 컴포넌트의 README는 설치 및 사용 방법에 대한 전체 지침을 제공합니다.
+
+이 문서에서는 컴포넌트를 설치하고 사용하는 방법에 대한 일반적인 패턴을 살펴봅니다.
+
+## 컴포넌트 설치하기
+
+예시로 [Sharded Counter](https://www.npmjs.com/package/@convex-dev/sharded-counter) 컴포넌트를 사용하겠습니다.
+
+<StepByStep>
+  <Step title="`npm`에서 설치하기">
+  npm에서 관련 패키지를 설치합니다
+
+```bash
+npm i @convex-dev/sharded-counter
+```
+
+  </Step>
+  <Step title="앱에 컴포넌트 추가하기">
+  앱의 `convex/` 폴더에 `convex.config.ts` 파일을 생성하거나 업데이트하고 `use`를 호출하여 컴포넌트를 설치합니다:
+
+```ts
+// convex/convex.config.ts
+import { defineApp } from "convex/server";
+import shardedCounter from "@convex-dev/sharded-counter/convex.config";
+
+const app = defineApp();
+
+// highlight-next-line
+app.use(shardedCounter);
+//... Add other components here
+
+export default app;
+```
+
+  </Step>
+  <Step title="convex dev 실행하기">
+  컴포넌트가 백엔드에 등록되고 필요한 코드가 생성되도록 convex dev cli가 실행 중인지 확인하세요.
+
+```bash
+npx convex dev
+```
+
+  </Step>
+  <Step title="제공된 컴포넌트 API 사용하기">
+    각 컴포넌트는 자체 API를 가지고 있습니다. 사용법에 대한 자세한 내용은 각 컴포넌트의 README 파일을 확인하세요.
+  </Step>
+
+</StepByStep>
+
+## 컴포넌트 함수
+
+컴포넌트가 더 높은 수준의 TypeScript API를 노출할 수 있지만, 내부적으로는 컴포넌트 샌드박스 경계를 넘어 일반 Convex 함수를 통해 호출됩니다.
+
+쿼리, 뮤테이션 및 액션 규칙은 여전히 적용됩니다 - 쿼리는 컴포넌트 쿼리만 호출할 수 있고, 뮤테이션은 컴포넌트 뮤테이션도 호출할 수 있으며, 액션은 컴포넌트 액션도 호출할 수 있습니다. 결과적으로 컴포넌트에 대한 쿼리는 기본적으로 반응형이며, 뮤테이션은 동일한 트랜잭션 보장을 제공합니다.
+
+## 트랜잭션
+
+Convex의 뮤테이션 함수는 [트랜잭션](/functions/mutation-functions.mdx#transactions)입니다. 뮤테이션의 모든 변경 사항이 한 번에 기록되거나 전혀 기록되지 않습니다.
+
+최상위 뮤테이션 호출에 대한 모든 쓰기 작업은 다른 컴포넌트의 뮤테이션 호출에 의해 수행된 쓰기 작업을 포함하여 동시에 커밋됩니다. 최상위 뮤테이션이 오류를 발생시키면 모든 쓰기 작업이 롤백되며, 뮤테이션은 데이터베이스를 전혀 변경하지 않습니다.
+
+그러나 컴포넌트 뮤테이션 호출이 예외를 발생시키면 해당 쓰기 작업만 롤백됩니다. 그런 다음 호출자가 예외를 포착하면 계속 진행하고 더 많은 쓰기 작업을 수행하며 성공적으로 반환할 수 있습니다. 호출자가 예외를 포착하지 않으면 실패한 것으로 간주되고 호출자 뮤테이션과 관련된 모든 쓰기 작업이 롤백됩니다. 이는 코드가 컴포넌트의 의미 체계에 따라 다른 코드 경로를 선택할 수 있음을 의미합니다.
+
+예를 들어, [Rate Limiter](https://www.npmjs.com/package/@convex-dev/ratelimiter) 컴포넌트를 살펴보겠습니다. Rate Limiter의 한 API는 속도 제한에 도달하면 오류를 발생시킵니다:
+
+```ts
+// Automatically throw an error if the rate limit is hit.
+await rateLimiter.limit(ctx, "failedLogins", { key: userId, throws: true });
+```
+
+`rateLimiter.limit` 호출이 예외를 발생시키면 속도 제한을 초과한 것입니다. 그런 다음 호출하는 뮤테이션이 이 예외를 포착하지 않으면 전체 트랜잭션이 롤백됩니다.
+
+반면에 호출하는 뮤테이션은 예외를 포착하고 진행하여 속도 제한을 무시하기로 결정할 수도 있습니다. 예를 들어, 앱은 개발 환경 재정의가 있는 경우 속도 제한을 무시할 수 있습니다. 이 경우 컴포넌트 뮤테이션만 롤백되고 나머지 뮤테이션은 계속됩니다.
+
+## 대시보드
+
+대시보드의 드롭다운을 사용하여 컴포넌트의 데이터, 함수, 파일 및 기타 정보를 볼 수 있습니다.
+
+<p style={{ textAlign: "center" }}>
+  <img
+    src="/screenshots/component_dropdown.png"
+    alt="Screenshot of the component dropdown"
+    width={414}
+  />
+</p>

@@ -1,0 +1,100 @@
+---
+title: "데이터 가져오기"
+sidebar_label: "데이터 가져오기"
+description: "Convex로 데이터 가져오기"
+sidebar_position: 169
+---
+
+명령줄을 사용하여 로컬 파일에서 Convex로 데이터를 가져올 수 있습니다.
+
+```sh
+npx convex import
+```
+
+<BetaAdmonition feature="데이터 가져오기" verb="is" />
+
+`--help`를 사용하여 모든 옵션을 확인하십시오. 가장 일반적인 흐름은 여기에 설명되어 있습니다.
+
+## 단일 테이블 가져오기
+
+```sh
+npx convex import --table <tableName> <path>
+```
+
+CSV, JSON 또는 JSONLines 파일을 Convex 테이블로 가져옵니다.
+
+- `.csv` 파일은 헤더가 있어야 하며, 각 행의 항목은 (부동 소수점) 숫자 또는 문자열로 해석됩니다.
+- `.jsonl` 파일은 줄당 JSON 객체가 있어야 합니다.
+- `.json` 파일은 JSON 객체의 배열이어야 합니다.
+  - JSON 배열의 크기 제한은 8MiB입니다. 더 많은 데이터를 가져오려면 CSV 또는 JSONLines를 사용하십시오. `jq -c '.[]' data.json > data.jsonl`과 같은 명령으로 json을 jsonl로 변환할 수 있습니다.
+
+기존 데이터가 있는 테이블로 가져오기는 기본적으로 실패하지만, `--append`를 지정하여 가져온 행을 테이블에 추가하거나 `--replace`를 지정하여 테이블의 기존 데이터를 가져오기로 대체할 수 있습니다.
+
+기본값은 개발 배포로 가져오는 것입니다. `--prod`를 사용하여 프로덕션 배포로 가져오거나 `--preview-name`을 사용하여 미리보기 배포로 가져옵니다.
+
+## 백업 ZIP 파일에서 데이터 복원
+
+```sh
+npx convex import <path>.zip
+```
+
+[백업](/database/backup-restore)에서 Convex 배포로 가져오며, 백업은 대시보드에서 다운로드한 ZIP 파일입니다. 문서는 테이블 간의 참조가 유지되도록 `_id` 및 `_creationTime` 필드를 유지합니다.
+
+기존 데이터가 있는 테이블로 가져오기는 기본적으로 실패하지만, `--replace`를 지정하여 ZIP 파일에 언급된 테이블의 기존 데이터를 대체할 수 있습니다.
+
+## 사용 사례
+
+1. 샘플 데이터로 개발 배포 시드.
+
+```sh
+# 전체 백업 - 프로덕션 또는 다른 개발 배포에서 내보냄.
+npx convex import seed_data.zip
+
+# jsonl/csv에서 단일 테이블 가져오기
+npx convex import --table <table name> data.jsonl
+```
+
+2. 프로그래밍 방식으로 [백업](/database/backup-restore)에서 배포 복원. 백업을 다운로드하고 필요한 경우 이 백업에서 복원합니다.
+
+```sh
+npx convex import --prod --replace backup.zip
+```
+
+3. 프로덕션, 개발 또는 다른 미리보기 배포에서 내보낸 샘플 데이터로 미리보기 배포 시드. Vercel의 경우 저장소 루트에 커밋된 `seed_data.zip`에서 데이터를 시드하는 예제입니다.
+
+```sh
+npx convex deploy --cmd 'npm run build' &&
+if [ "$VERCEL_ENV" == "preview" ]; then
+npx convex import --preview-name "$VERCEL_GIT_COMMIT_REF" seed_data.zip;
+fi
+```
+
+4. 빈 가져오기로 테이블을 효율적으로 지웁니다.
+
+```sh
+touch empty_file.jsonl
+npx convex import --replace --table <tableNameToClear> empty_file.jsonl
+```
+
+## 기능
+
+- 데이터 가져오기는 기존 `_id` 및 `_creationTime` 필드로 문서를 만드는 유일한 방법입니다.
+  - `_id` 필드는 Convex의 ID 형식과 일치해야 합니다.
+  - `_id` 또는 `_creationTime`이 제공되지 않으면 가져오는 동안 새 값이 선택됩니다.
+- 데이터 가져오기는 원자적으로 테이블을 만들고 교체합니다(`--append` 사용 시 제외).
+  - 쿼리 및 뮤테이션은 부분 데이터가 가져온 중간 상태를 보지 않습니다.
+  - 인덱스 및 스키마는 재백필 또는 재검증 시간 없이 새 데이터에서 작동합니다.
+- 데이터 가져오기는 `--table` 또는 ZIP 파일의 항목으로 가져오기에 언급된 테이블에만 영향을 줍니다.
+- JSON 및 JSONLines는 임의의 JSON 값을 가져올 수 있지만, ZIP 가져오기는 추가로 다른 Convex 값을 가져올 수 있습니다: Int64, Bytes 등. 타입은 `generated_schema.jsonl` 파일을 통해 ZIP 파일에 보존됩니다.
+- [파일 스토리지](/file-storage)를 포함하는 ZIP 파일의 데이터 가져오기는 파일을 가져오고 [`_storage`](/database/advanced/system-tables.mdx) 문서를 보존하며, `_id`, `_creationTime` 및 `contentType` 필드를 포함합니다.
+
+## 경고
+
+- [스트리밍 내보내기](/production/integrations/streaming-import-export.md)
+  (Fivetran 또는 Airbyte)는 데이터 가져오기 또는 백업 복원을 처리하지 않으며, 테이블 삭제 및 생성과 일부 스키마 변경과 유사합니다. 복원 또는 데이터 가져오기 후 스트리밍 내보내기 동기화를 재설정하는 것이 좋습니다.
+- 데이터 내보내기에서 다운로드한 ZIP 파일과 `npx convex import`로 가져오는 사이에 ZIP 파일을 변경하지 마십시오. ZIP 파일의 일부 수동 변경이 가능할 수 있지만 문서화되지 않습니다. [Discord](https://convex.dev/community)에서 Convex 팀과 사용 사례를 공유하고 확인하십시오.
+- Convex 버전 1.7 이전에 생성된 배포로 가져올 때 데이터 가져오기가 항상 지원되는 것은 아닙니다.
+  - 가져오기가 작동할 수 있으며, 특히 대상 배포와 거의 동시에 생성된 배포에서 ZIP 백업을 가져올 때 그렇습니다. 특별한 경우로 항상 자체 배포에서 백업을 복원할 수 있습니다.
+  - 문제가 발생하면 [Discord](https://convex.dev/community)에서 연락하십시오. 해결 방법이 있을 수 있습니다.
+
+데이터 가져오기는 모든 문서를 쓰기 위해 데이터베이스 대역폭을 사용하고, 내보내기에 파일 스토리지가 포함된 경우 파일 대역폭을 사용합니다. [사용량 대시보드](https://dashboard.convex.dev/team/settings/usage)에서 함수 이름 `_cli/import`로 이 대역폭과 [제한 문서](/production/state/limits#database)에서 관련 비용을 확인할 수 있습니다.

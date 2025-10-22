@@ -1,0 +1,50 @@
+---
+title: "Scheduling"
+hide_table_of_contents: true
+pagination_prev: auth
+description:
+  "Schedule functions to run once or repeatedly with scheduled functions and
+  cron jobs"
+---
+
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+Convex를 사용하면 한 번 또는 반복적으로 미래에 실행될 함수를 쉽게 스케줄링할 수 있습니다. 이를 통해 가입 후 하루 뒤에 환영 이메일을 보내거나 정기적으로 Stripe와 계정을 조정하는 것과 같은 내구성 있는 워크플로우를 구축할 수 있습니다. Convex는 스케줄링을 위해 두 가지 다른 기능을 제공합니다:
+
+- [스케줄링된 함수](/scheduling/scheduled-functions.mdx)는 다른 함수에 의해 나중에 실행되도록 내구성 있게 스케줄링될 수 있습니다. 미래의 몇 분, 며칠, 심지어 몇 달 후에도 함수를 스케줄링할 수 있습니다.
+- [Cron Job](/scheduling/cron-jobs.mdx)은 매일과 같이 정기적으로 실행되도록 함수를 스케줄링합니다.
+
+## 내구성 있는 함수 컴포넌트
+
+내장된 스케줄링된 함수와 cron은 간단한 앱과 워크플로우에 잘 작동합니다. 대규모로 운영하거나 더 구체적인 보장이 필요한 경우, 내구성 있는 함수를 위한 다음의 상위 수준 [컴포넌트](/components.mdx)를 사용하세요.
+
+<ComponentCardList
+  items={[
+    {
+      title: "Workpool",
+      description:
+        "Workpool give critical tasks priority by organizing async operations into separate, customizable queues.",
+      href: "https://www.convex.dev/components/workpool",
+    },
+    {
+      title: "Workflow",
+      description:
+        "Simplify programming long running code flows. Workflows execute durably with configurable retries and delays.",
+      href: "https://www.convex.dev/components/workflow",
+    },
+    {
+      title: "Action Retrier",
+      description:
+        "Add reliability to an unreliable external service. Retry idempotent calls a set number of times.",
+      href: "https://www.convex.dev/components/retrier",
+    },
+    {
+      title: "Crons",
+      description:
+        "Use cronspec to run functions on a repeated schedule at runtime.",
+      href: "https://www.convex.dev/components/crons",
+    },
+  ]}
+/>
+
+<StackPosts query="scheduler" />

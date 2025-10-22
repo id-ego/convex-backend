@@ -1,0 +1,291 @@
+---
+title: "Convex React"
+sidebar_label: "React"
+sidebar_position: 4
+description: "Convex 백엔드와 상호작용하기 위한 React 클라이언트 라이브러리"
+---
+
+import SkipBad from "!!raw-loader!@site/../private-demos/snippets/src/reactSkipBad.tsx";
+import SkipGood from "!!raw-loader!@site/../private-demos/snippets/src/reactSkipGood.tsx";
+
+Convex React는 React 애플리케이션이 Convex 백엔드와 상호작용할 수 있게 하는 클라이언트 라이브러리입니다. 프론트엔드 코드에서 다음을 수행할 수 있습니다:
+
+1. [쿼리](/functions/query-functions.mdx),
+   [뮤테이션](/functions/mutation-functions.mdx) 및
+   [액션](/functions/actions.mdx)을 호출할 수 있습니다
+2. [파일 스토리지](/file-storage.mdx)에서 파일을 업로드하고 표시할 수 있습니다
+3. [인증](/auth.mdx)을 사용하여 사용자를 인증할 수 있습니다
+4. 데이터에 대한 전체 텍스트 [검색](/search.mdx)을 구현할 수 있습니다
+
+Convex React 클라이언트는 오픈 소스이며
+[GitHub](https://github.com/get-convex/convex-js)에서 사용 가능합니다.
+
+[Vite](https://vitejs.dev/)를 사용하여 React를 시작하려면 [React 빠른 시작](/quickstart/react.mdx)을 따르세요.
+
+## 설치
+
+Convex React는 `convex` npm 패키지의 일부입니다:
+
+```
+npm install convex
+```
+
+## 백엔드에 연결하기
+
+[`ConvexReactClient`](/api/classes/react.ConvexReactClient)는 Convex 백엔드와의 연결을 유지하며, 아래 설명된 React 훅이 함수를 호출하는 데 사용됩니다.
+
+먼저 백엔드 배포 URL을 제공하여 클라이언트 인스턴스를 생성해야 합니다. 올바른 값을 전달하는 방법은 [배포 URL 구성](/client/react/project-setup.md)을 참조하세요:
+
+```jsx
+import { ConvexProvider, ConvexReactClient } from "convex/react";
+
+const convex = new ConvexReactClient("https://<your domain here>.convex.cloud");
+```
+
+그런 다음 컴포넌트 트리를 감싸는
+[`ConvexProvider`](/api/modules/react#convexprovider)에 전달하여 앱에서 클라이언트를 사용할 수 있도록 합니다:
+
+```jsx
+reactDOMRoot.render(
+  <React.StrictMode>
+    <ConvexProvider client={convex}>
+      <App />
+    </ConvexProvider>
+  </React.StrictMode>,
+);
+```
+
+## 데이터 가져오기
+
+React 앱은 [`api`](/generated-api/api.md#api) 객체를 통해 [쿼리](/functions/query-functions.mdx)를 호출하여 [`useQuery`](/api/modules/react#usequery) React 훅을 사용하여 데이터를 가져옵니다.
+
+`npx convex dev` 명령은 JavaScript에서 더 나은 자동 완성을 제공하고
+[TypeScript](/understanding/best-practices/typescript.mdx)에서 엔드 투 엔드 타입 안전성을 제공하기 위해 `convex/_generated/api.js` 모듈에서 이 api 객체를 생성합니다:
+
+```tsx title="src/App.tsx"
+import { useQuery } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const data = useQuery(api.functions.myQuery);
+  return data ?? "Loading...";
+}
+```
+
+`useQuery` 훅은 데이터가 처음 로드되는 동안 `undefined`를 반환하고 이후에는 쿼리의 반환 값을 반환합니다.
+
+### 쿼리 인수
+
+쿼리에 대한 인수는 쿼리 이름 뒤에 옵니다:
+
+```tsx title="src/App.tsx"
+export function App() {
+  const a = "Hello world";
+  const b = 4;
+  const data = useQuery(api.functions.myQuery, { a, b });
+  //...
+}
+```
+
+### 반응성
+
+`useQuery` 훅은 앱을 자동으로 반응형으로 만듭니다: 데이터베이스의 기본 데이터가 변경되면 컴포넌트가 새 쿼리 결과로 다시 렌더링됩니다.
+
+훅을 처음 사용하면 주어진 쿼리와 전달하는 인수에 대한 백엔드 구독을 생성합니다. 컴포넌트가 언마운트되면 구독이 취소됩니다.
+
+### 일관성
+
+Convex React는 애플리케이션이 항상 기본 데이터베이스의 단일 상태를 기반으로 쿼리 결과의 일관된 뷰를 렌더링하도록 보장합니다.
+
+뮤테이션이 데이터베이스의 일부 데이터를 변경하고 2개의 다른 `useQuery` 호출 사이트가 이 데이터에 의존한다고 상상해보세요. 앱은 `useQuery` 호출 사이트 중 하나만 새 데이터를 반영하는 일관되지 않은 상태로 렌더링되지 않습니다.
+
+### 쿼리 페이지네이션
+
+[React 컴포넌트 내에서 페이지네이션](/database/pagination.mdx#paginating-within-react-components)을 참조하세요.
+
+### 쿼리 건너뛰기
+
+<Details summary="고급: 조건부로 쿼리 로드하기">
+
+React에서는 훅을 조건문 내부나 조기 반환 이후에 배치할 수 없기 때문에 동적으로 훅을 호출하기가 까다로울 수 있습니다:
+
+<TSAndJSSnippet
+  title="src/App.tsx"
+  sourceTS={SkipBad}
+  sourceJS={SkipBad}
+  snippet="example"
+  highlightPatterns={["useQuery"]}
+/>
+
+이러한 이유로 `useQuery`는 인수 대신 `"skip"`을 전달하여 "비활성화"할 수 있습니다:
+
+<TSAndJSSnippet
+  title="src/App.tsx"
+  sourceTS={SkipGood}
+  sourceJS={SkipGood}
+  highlightPatterns={["skip"]}
+/>
+
+`"skip"`을 사용하면 `useQuery`는 백엔드와 전혀 통신하지 않고 `undefined`를 반환합니다.
+
+</Details>
+
+### 일회성 쿼리
+
+<Details summary="고급: 콜백에서 쿼리 가져오기">
+
+때때로 데이터베이스를 변경하지 않고 사용자 작업에 대한 응답으로 데이터베이스에서 상태를 읽고 싶을 수 있습니다. 예를 들어 주어진 입력의 유효성을 검사하는 경우입니다. 이 경우 뮤테이션 및 액션 호출과 유사하게 일회성
+[`query`](/api/classes/react.ConvexReactClient#query) 호출을 사용할 수 있습니다.
+
+비동기 메서드 `query`는 `ConvexReactClient`에 노출되어 있으며,
+[`useConvex()`](/api/modules/react#useconvex) 훅을 통해 컴포넌트에서 참조할 수 있습니다.
+
+```tsx title="src/App.tsx"
+import { useConvex } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const convex = useConvex();
+  return (
+    <button
+      onClick={async () => {
+        console.log(await convex.query(api.functions.myQuery));
+      }}
+    >
+      Check
+    </button>
+  );
+}
+```
+
+</Details>
+
+## 데이터 편집
+
+React 앱은 [뮤테이션](/functions/mutation-functions.mdx)을 호출하여
+[`useMutation`](/api/modules/react#usemutation) React 훅을 사용하여 데이터를 편집합니다.
+
+`convex dev` 명령은 JavaScript에서 더 나은 자동 완성을 제공하고
+[TypeScript](/understanding/best-practices/typescript.mdx)에서 엔드 투 엔드 타입 안전성을 제공하기 위해 `convex/_generated/api.js` 모듈에서 이 api 객체를 생성합니다:
+
+```tsx title="src/App.tsx"
+import { useMutation } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  return <button onClick={() => doSomething()}>Click me</button>;
+}
+```
+
+훅은 뮤테이션 호출을 수행하는 `async` 함수를 반환합니다.
+
+### 뮤테이션 인수
+
+뮤테이션에 대한 인수는 `useMutation`에서 반환된 `async` 함수에 전달됩니다:
+
+```tsx title="src/App.tsx"
+export function App() {
+  const a = "Hello world";
+  const b = 4;
+  const doSomething = useMutation(api.functions.doSomething);
+  return <button onClick={() => doSomething({ a, b })}>Click me</button>;
+}
+```
+
+### 뮤테이션 응답 및 오류 처리
+
+뮤테이션은 선택적으로 값을 반환하거나 오류를 발생시킬 수 있으며,
+[`await`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/await)할 수 있습니다:
+
+```tsx title="src/App.tsx"
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  const onClick = () => {
+    async function callBackend() {
+      try {
+        const result = await doSomething();
+      } catch (error) {
+        console.error(error);
+      }
+      console.log(result);
+    }
+    void callBackend();
+  };
+  return <button onClick={onClick}>Click me</button>;
+}
+```
+
+또는
+[`Promise`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)로 처리합니다:
+
+```tsx title="src/App.tsx"
+export function App() {
+  const doSomething = useMutation(api.functions.doSomething);
+  const onClick = () => {
+    doSomething()
+      .catch((error) => {
+        console.error(error);
+      })
+      .then((result) => {
+        console.log(result);
+      });
+  };
+  return <button onClick={onClick}>Click me</button>;
+}
+```
+
+함수에서 [오류 처리](/functions/error-handling/error-handling.mdx)에 대해 자세히 알아보세요.
+
+### 재시도
+
+Convex React는 데이터베이스에 기록된 것으로 확인될 때까지 뮤테이션을 자동으로 재시도합니다. Convex 백엔드는 여러 번 재시도해도 모든 뮤테이션 호출이 한 번만 실행되도록 보장합니다.
+
+또한 Convex React는 미해결 뮤테이션이 있는 동안 사용자가 브라우저 탭을 닫으려고 하면 경고합니다. 즉, Convex 뮤테이션을 호출하면 사용자의 편집 내용이 손실되지 않을 것이라고 확신할 수 있습니다.
+
+### 낙관적 업데이트
+
+Convex 쿼리는 완전히 반응형이므로 뮤테이션 이후 모든 쿼리 결과가 자동으로 업데이트됩니다. 때때로 뮤테이션 변경사항이 클라이언트로 전파되기 전에 UI를 업데이트하고 싶을 수 있습니다. 이를 위해 뮤테이션의 일부로 실행되도록 _낙관적 업데이트_를 구성할 수 있습니다.
+
+낙관적 업데이트는 앱의 응답성을 높이는 데 사용되는 쿼리 결과에 대한 임시 로컬 변경사항입니다.
+
+구성 방법은 [낙관적 업데이트](/client/react/optimistic-updates.mdx)를 참조하세요.
+
+## 타사 API 호출
+
+React 앱은 [액션](/functions/actions.mdx)을 호출하여
+[`useAction`](/api/modules/react#useaction) React 훅을 사용하여 단일 백엔드 호출로 데이터를 읽고, 타사 서비스를 호출하고, 데이터를 작성할 수 있습니다.
+
+`useQuery` 및 `useMutation`과 마찬가지로 이 훅은 JavaScript에서 더 나은 자동 완성을 제공하고
+[TypeScript](/understanding/best-practices/typescript.mdx)에서 엔드 투 엔드 타입 안전성을 제공하기 위해 `convex/_generated/api.js` 모듈에서 생성된 `api` 객체와 함께 사용됩니다:
+
+```tsx title="src/App.tsx"
+import { useAction } from "convex/react";
+import { api } from "../convex/_generated/api";
+
+export function App() {
+  const doSomeAction = useAction(api.functions.doSomeAction);
+  return <button onClick={() => doSomeAction()}>Click me</button>;
+}
+```
+
+훅은 액션 호출을 수행하는 `async` 함수를 반환합니다.
+
+### 액션 인수
+
+액션 인수는
+[뮤테이션 인수](#mutation-arguments)와 정확히 동일하게 작동합니다.
+
+### 액션 응답 및 오류 처리
+
+액션 응답 및 오류 처리는
+[뮤테이션 응답 및 오류 처리](#mutation-response-and-error-handling)와 정확히 동일하게 작동합니다.
+
+액션은 자동 재시도 또는 낙관적 업데이트를 지원하지 않습니다.
+
+## 내부 동작
+
+[`ConvexReactClient`](/api/classes/react.ConvexReactClient)는
+[`WebSocket`](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)을 생성하여 Convex 배포에 연결합니다. WebSocket은 TCP를 통한 양방향 통신 채널을 제공합니다. 이를 통해 Convex는 클라이언트가 업데이트를 폴링할 필요 없이 새 쿼리 결과를 클라이언트에 반응적으로 푸시할 수 있습니다.
+
+인터넷 연결이 끊어지면 클라이언트가 자동으로 재연결하고 Convex 세션을 다시 설정합니다.

@@ -1,0 +1,73 @@
+---
+title: 플레이그라운드
+sidebar_label: "플레이그라운드"
+sidebar_position: 400
+description: "에이전트를 테스트하고 디버그하며 개발하는 간단한 방법"
+---
+
+플레이그라운드 UI는 에이전트를 테스트하고 디버그하며 개발하는 간단한 방법입니다.
+
+![플레이그라운드 UI 스크린샷](https://get-convex.github.io/agent/screenshot.png)
+
+- 사용자를 선택하여 스레드를 나열합니다.
+- 사용자의 스레드를 탐색합니다.
+- 툴 호출 세부 정보와 함께 선택한 스레드의 메시지를 나열합니다.
+- 메시지 메타데이터 세부 정보를 표시합니다.
+- 컨텍스트 옵션을 조정하여 컨텍스트 메시지 조회를 실험합니다.
+- 구성 가능한 저장 옵션으로 스레드에 메시지를 보냅니다.
+- API 키를 사용하여 백엔드와 안전하게 통신합니다.
+
+[여기 호스팅된 버전](https://get-convex.github.io/agent/)도 있습니다.
+
+## 설정
+
+**참고**: 에이전트가 설치된 Convex 프로젝트가 이미 있어야 합니다. 설정 지침은 [문서](./getting-started.mdx)를 참조하세요.
+
+에이전트 Convex 프로젝트에서 `convex/playground.ts` 파일을 만들고 다음과 같이 작성합니다:
+
+```ts
+import { definePlaygroundAPI } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+import { weatherAgent, fashionAgent } from "./example";
+
+/**
+ * Here we expose the API so the frontend can access it.
+ * Authorization is handled by passing up an apiKey that can be generated
+ * on the dashboard or via CLI via:
+ * npx convex run --component agent apiKeys:issue
+ */
+export const {
+  isApiKeyValid,
+  listAgents,
+  listUsers,
+  listThreads,
+  listMessages,
+  createThread,
+  generateText,
+  fetchPromptContext,
+} = definePlaygroundAPI(components.agent, {
+  agents: [weatherAgent, fashionAgent],
+});
+```
+
+프로젝트의 저장소에서 API 키를 발급합니다:
+
+```sh
+npx convex run --component agent apiKeys:issue '{name:"..."}'
+```
+
+참고: 여러 키를 생성하려면 각 키에 다른 이름을 지정합니다. 키를 취소하고 재발급하려면 동일한 이름을 전달합니다.
+
+그런 다음 [호스팅된 버전](https://get-convex.github.io/agent/)을 방문합니다.
+
+`.env.local`에서 찾을 수 있는 Convex 배포 URL을 요청합니다. 위에서 생성한 API 키도 요청합니다. `convex/playground.ts`에 다른 경로를 사용한 경우 입력할 수 있습니다. 예를 들어 플레이그라운드 API를 내보낸 `convex/foo/bar.ts`가 있는 경우 `foo/bar`를 입력합니다.
+
+## 로컬에서 실행하기
+
+다음 명령으로 플레이그라운드를 로컬에서 실행할 수 있습니다:
+
+```sh
+npx @convex-dev/agent-playground
+```
+
+일반적으로 .env.local에서 가져오는 `VITE_CONVEX_URL` 환경 변수를 사용합니다.

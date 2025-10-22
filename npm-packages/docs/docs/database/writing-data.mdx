@@ -1,0 +1,130 @@
+---
+title: "데이터 작성"
+sidebar_position: 4
+description: "Convex 데이터베이스 테이블에 데이터를 삽입, 업데이트 및 삭제합니다"
+---
+
+import insertExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataInsert.ts";
+import patchExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataPatch.ts";
+import replaceExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataReplace.ts";
+import deleteExample from "!!raw-loader!@site/../private-demos/snippets/convex/writingDataDelete.ts";
+import { ComponentCardList } from "@site/src/components/ComponentCard";
+
+[뮤테이션](/functions/mutation-functions.mdx)은 데이터베이스 테이블에서 데이터를 삽입, 업데이트 및 제거할 수 있습니다.
+
+## 새 문서 삽입하기
+
+[`db.insert`](/api/interfaces/server.GenericDatabaseWriter#insert) 메서드를 사용하여 데이터베이스에 새 문서를 생성할 수 있습니다:
+
+<TSAndJSSnippet
+  title="convex/tasks.ts"
+  sourceTS={insertExample}
+  sourceJS={insertExample}
+  highlightPatterns={["db.insert"]}
+/>
+
+`db.insert`의 두 번째 인수는 새 문서의 데이터를 포함하는 JavaScript 객체입니다.
+
+[쿼리](/functions/query-functions.mdx) 및 [뮤테이션](/functions/mutation-functions.mdx)에 전달되거나 반환될 수 있는 동일한 유형의 값을 데이터베이스에 작성할 수 있습니다. 지원되는 타입의 전체 목록은 [데이터 타입](/database/types.md)을 참조하세요.
+
+`insert` 메서드는 새로 삽입된 문서에 대한 전역적으로 고유한 ID를 반환합니다.
+
+## 기존 문서 업데이트하기
+
+기존 문서 ID가 주어지면 다음 메서드를 사용하여 문서를 업데이트할 수 있습니다:
+
+1. [`db.patch`](/api/interfaces/server.GenericDatabaseWriter#patch) 메서드는 기존 문서를 패치하여 주어진 부분 문서와 얕은 병합을 수행합니다. 새 필드가 추가됩니다. 기존 필드는 덮어씁니다. `undefined`로 설정된 필드는 제거됩니다.
+
+<TSAndJSSnippet
+  title="convex/tasks.ts"
+  sourceTS={patchExample}
+  sourceJS={patchExample}
+  highlightPatterns={["db.patch"]}
+/>
+
+2. [`db.replace`](/api/interfaces/server.GenericDatabaseWriter#replace) 메서드는 기존 문서를 완전히 교체하며, 기존 필드를 잠재적으로 제거할 수 있습니다:
+
+<TSAndJSSnippet
+  title="convex/tasks.ts"
+  sourceTS={replaceExample}
+  sourceJS={replaceExample}
+  highlightPatterns={["db.replace"]}
+/>
+
+## 문서 삭제하기
+
+기존 문서 ID가 주어지면 [`db.delete`](/api/interfaces/server.GenericDatabaseWriter#delete) 메서드를 사용하여 테이블에서 문서를 제거할 수 있습니다.
+
+<TSAndJSSnippet
+  title="convex/tasks.ts"
+  sourceTS={deleteExample}
+  sourceJS={deleteExample}
+  highlightPatterns={["db.delete"]}
+/>
+
+## 대량 삽입 또는 업데이트
+
+SQL에 익숙하다면 일종의 대량 삽입 또는 대량 업데이트 구문을 찾고 있을 수 있습니다. Convex에서는 전체 `mutation` 함수가 자동으로 단일 트랜잭션입니다.
+
+뮤테이션 함수에서 루프로 삽입하거나 업데이트할 수 있습니다. Convex는 함수의 모든 데이터베이스 변경사항을 대기열에 추가하고 함수가 끝날 때 단일 트랜잭션에서 모두 실행하여 데이터베이스에 단일 효율적인 변경사항을 적용합니다.
+
+````typescript
+/**
+ * 데이터베이스에 여러 제품을 대량 삽입합니다.
+ *
+ * SQL의 다음과 동일합니다:
+ * ```sql
+ * INSERT INTO products (product_id, product_name, category, price, in_stock)
+ * VALUES
+ *     ('Laptop Pro', 'Electronics', 1299.99, true),
+ *     ('Wireless Mouse', 'Electronics', 24.95, true),
+ *     ('Ergonomic Keyboard', 'Electronics', 89.50, true),
+ *     ('Ultra HD Monitor', 'Electronics', 349.99, false),
+ *     ('Wireless Headphones', 'Audio', 179.99, true);
+ * ```
+ */
+export const bulkInsertProducts = mutation({
+  args: {
+    products: v.array(
+      v.object({
+        product_name: v.string(),
+        category: v.string(),
+        price: v.number(),
+        in_stock: v.boolean(),
+      }),
+    ),
+  },
+  handler: async (ctx, args) => {
+    const { products } = args;
+
+    // 루프에서 삽입합니다. Convex가 모든 변경사항을 대기열에 추가하여
+    // 뮤테이션이 끝날 때 단일 트랜잭션에서 실행하므로 효율적입니다.
+    for (const product of products) {
+      const id = await ctx.db.insert("products", {
+        product_name: product.product_name,
+        category: product.category,
+        price: product.price,
+        in_stock: product.in_stock,
+      });
+    }
+  },
+});
+````
+
+## 마이그레이션
+
+데이터베이스 마이그레이션은 마이그레이션 컴포넌트를 통해 수행됩니다. 이 컴포넌트는 시간이 지남에 따라 데이터베이스 스키마를 안전하게 발전시키기 위해 온라인 마이그레이션을 실행하도록 설계되었습니다. 실패 시 재개할 수 있으며, 드라이 런으로 변경사항을 검증할 수 있습니다.
+
+<ComponentCardList
+  items={[
+    {
+      title: "마이그레이션",
+      description: "라이브 데이터의 장기 실행 데이터 마이그레이션을 위한 프레임워크입니다.",
+      href: "https://www.convex.dev/components/migrations",
+    },
+  ]}
+/>
+
+## 작성 성능 및 제한사항
+
+대량의 레코드를 실수로 작성하는 것을 방지하기 위해, 쿼리와 뮤테이션은 [여기](/production/state/limits.mdx#transactions)에 자세히 설명된 제한사항을 적용합니다.

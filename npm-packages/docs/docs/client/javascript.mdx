@@ -1,0 +1,50 @@
+---
+title: "JavaScript"
+sidebar_label: "JavaScript"
+sidebar_position: 350
+description:
+  "Convex를 사용하는 Node.js 및 브라우저 애플리케이션을 위한 JavaScript 클라이언트"
+---
+
+import Http from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.ts";
+
+# Convex JavaScript 클라이언트
+
+Convex 애플리케이션은 [`fetch`](https://developer.mozilla.org/en-US/docs/Web/API/fetch) 또는
+[`WebSocket`](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket)을 구현하는 Node.js 또는 모든 JavaScript 런타임에서 액세스할 수 있습니다. 반응형 [Convex 클라이언트](/api/classes/browser.ConvexClient)는 웹 애플리케이션과 장기 실행 Node.js 서버가 Convex 쿼리에 대한 업데이트를 구독할 수 있게 하며, [Convex HTTP 클라이언트](/api/classes/browser.ConvexHttpClient)는 일반적으로 서버 측 렌더링, 마이그레이션, 관리 스크립트 및 서버리스 함수에서 단일 시점의 쿼리를 실행하는 데 사용됩니다.
+
+React를 사용하는 경우 [React](/client/react.mdx)에 설명된 전용
+[`ConvexReactClient`](/api/classes/browser.ConvexClient)를 참조하세요.
+
+## Convex 클라이언트
+
+[`ConvexClient`](/api/classes/browser.ConvexClient)는 Node.js 및 WebSocket을 지원하는 모든 JavaScript 환경에서 쿼리에 대한 구독을 제공합니다.
+
+import VanillaTS from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.ts";
+import VanillaJS from "!!raw-loader!@site/../private-demos/snippets/src/vanilla.js";
+
+<TSAndJSSnippet title="script.ts" sourceTS={VanillaTS} sourceJS={VanillaJS} />
+
+Convex 클라이언트는 오픈 소스이며
+[GitHub](https://github.com/get-convex/convex-js)에서 사용 가능합니다.
+
+시작하려면 [스크립트 태그 빠른 시작](/quickstart/script-tag.mdx)을 참조하세요.
+
+## HTTP 클라이언트
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/nodeExample.ts";
+
+[`ConvexHttpClient`](/api/classes/browser.ConvexHttpClient)는 브라우저, Node.js 및 `fetch`가 있는 모든 JavaScript 환경에서 작동합니다.
+
+[Node.js 빠른 시작](/quickstart/nodejs.mdx)을 참조하세요.
+
+<TSAndJSSnippet title="script.ts" sourceTS={Example} sourceJS={Example} />
+
+## 생성된 `convex/_generated/api.js` 없이 Convex 사용하기
+
+Convex 함수의 소스 코드가 동일한 프로젝트나 동일한 모노레포에 없는 경우 `anyApi`라는 타입 없는 `api` 객체를 사용할 수 있습니다.
+
+import StringsTS from "!!raw-loader!@site/../private-demos/snippets/src/strings.ts";
+import StringsJS from "!!raw-loader!@site/../private-demos/snippets/src/strings.js";
+
+<TSAndJSSnippet title="script.ts" sourceTS={StringsTS} sourceJS={StringsJS} />

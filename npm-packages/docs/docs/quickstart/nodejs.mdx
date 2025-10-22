@@ -1,0 +1,100 @@
+---
+title: Node.js 빠른 시작
+sidebar_label: Node.js
+description: "Node.js 프로젝트에 Convex 추가하기"
+hide_table_of_contents: true
+sidebar_position: 400
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/convex/tasks.js";
+import script from "!!raw-loader!@site/../private-demos/quickstarts/nodejs/script.js";
+
+Node.js 프로젝트에서 Convex 데이터를 쿼리하는 방법을 알아보세요.
+
+시점 쿼리 대신 구독에 대한 지침과 더 많은 프로젝트 구성(TypeScript, 번들러, CJS vs ESM)에 대해서는 [Node.js 참고사항](/client/javascript/node.mdx)을 참조하세요.
+
+<StepByStep>
+  <Step title="새 npm 프로젝트 생성하기">
+    Node.js 프로젝트를 위한 새 디렉토리를 생성하세요.
+
+    ```sh
+    mkdir my-project && cd my-project && npm init -y && npm pkg set type="module"
+    ```
+
+  </Step>
+  <Step title="Convex 클라이언트 및 서버 라이브러리 설치하기">
+    JavaScript에서 Convex를 사용하기 위한 편리한 인터페이스를 제공하는 `convex` 패키지를 설치하세요.
+
+    또한 `.env` 파일을 로드하기 위한 `dotenv` 라이브러리도 설치하세요.
+
+    ```sh
+    npm install convex dotenv
+    ```
+
+  </Step>
+  <Step title="Convex 개발 배포 설정하기">
+    다음으로, `npx convex dev`를 실행하세요. 이것은 GitHub로 로그인하고, 프로젝트를 생성하고, 프로덕션 및 배포 URL을 저장하라는 메시지를 표시합니다.
+
+    또한 백엔드 API 함수를 작성할 수 있는 `convex/` 폴더를 생성합니다. `dev` 명령은 계속 실행되면서 함수를 클라우드의 개발 배포와 동기화합니다.
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스용 샘플 데이터 생성하기">
+    새 터미널 창에서 샘플 데이터가 포함된 `sampleData.jsonl` 파일을 생성하세요.
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="데이터베이스에 샘플 데이터 추가하기">
+    이제 프로젝트가 준비되었으므로 `import` 명령을 사용하여 샘플 데이터가 포함된 `tasks` 테이블을 Convex 데이터베이스에 추가하세요.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스 쿼리 노출하기">
+    `convex/` 폴더에 데이터를 로드하는 쿼리 함수가 포함된 새 파일 `tasks.js`를 추가하세요.
+
+    이 파일에서 쿼리 함수를 내보내면 파일과 내보내기 이름으로 명명된 API 함수 `api.tasks.get`이 선언됩니다.
+
+    <Snippet
+      source={tasks}
+      title="convex/tasks.js"
+    />
+
+  </Step>
+
+  <Step title="스크립트를 백엔드에 연결하기">
+    새 파일 `script.js`에서 개발 환경의 URL을 사용하여 `ConvexHttpClient`를 생성하세요.
+
+    <Snippet
+      source={script}
+      title="script.js"
+    />
+
+  </Step>
+
+  <Step title="스크립트 실행하기">
+    같은 디렉토리에서 스크립트를 실행하고 터미널에 작업 목록이 출력되는 것을 확인하세요.
+
+    ```sh
+    node script.js
+    ```
+
+  </Step>
+
+</StepByStep>
+
+전체 [Node.js 문서](/client/javascript/node.mdx)를 참조하세요.

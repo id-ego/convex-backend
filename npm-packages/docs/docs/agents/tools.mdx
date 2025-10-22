@@ -1,0 +1,163 @@
+---
+title: 툴
+sidebar_label: "툴"
+sidebar_position: 500
+description: "에이전트 컴포넌트와 함께 툴 호출 사용하기"
+---
+
+에이전트 컴포넌트는 LLM이 외부 서비스나 함수를 호출할 수 있도록 하는 툴 호출을 지원합니다. 이것은 다음에 유용할 수 있습니다:
+
+- 데이터베이스에서 데이터 검색
+- 데이터베이스에 데이터 쓰기 또는 업데이트
+- 더 많은 컨텍스트를 위해 웹 검색
+- 외부 API 호출
+- 계속하기 전에 사용자에게 조치를 취하도록 요청(human-in-the-loop)
+
+## 툴 정의하기
+
+다양한 시점에 툴을 제공할 수 있습니다:
+
+- 에이전트 생성자: (`new Agent(components.agent, { tools: {...} })`)
+- 스레드 생성: `createThread(ctx, { tools: {...} })`
+- 스레드 계속하기: `continueThread(ctx, { tools: {...} })`
+- 스레드 함수에서: `thread.generateText({ tools: {...} })`
+- 스레드 외부: `supportAgent.generateText(ctx, {}, { tools: {...} })`
+
+각 레이어에서 툴을 지정하면 기본값을 덮어씁니다. 툴은 `args.tools ?? thread.tools ?? agent.options.tools`가 됩니다. 이렇게 하면 편리한 컨텍스트에서 툴을 생성할 수 있습니다.
+
+## 툴 사용하기
+
+에이전트 컴포넌트는 `generateText` 또는 `streamText`에 `stopWhen: stepCountIs(num)`을 전달할 때 툴 호출 결과를 자동으로 다시 전달하고 재생성합니다(여기서 `num > 1`).
+
+툴 호출 및 결과는 소스 메시지와 연결된 스레드에 메시지로 저장됩니다. 자세한 내용은 [메시지](./messages.mdx)를 참조하세요.
+
+## Convex 컨텍스트로 툴 생성하기
+
+Convex 컨텍스트에 액세스할 수 있는 툴을 생성하는 방법에는 두 가지가 있습니다.
+
+1. AI SDK의 `tool` 함수를 래핑하는 `createTool` 함수를 사용합니다.
+
+```ts
+export const ideaSearch = createTool({
+  description: "Search for ideas in the database",
+  args: z.object({ query: z.string().describe("The query to search for") }),
+  handler: async (ctx, args, options): Promise<Array<Idea>> => {
+    // ctx has agent, userId, threadId, messageId
+    // as well as ActionCtx properties like auth, storage, runMutation, and runAction
+    const ideas = await ctx.runQuery(api.ideas.searchIdeas, {
+      query: args.query,
+    });
+    console.log("found ideas", ideas);
+    return ideas;
+  },
+});
+```
+
+2. 사용하려는 변수가 있는 컨텍스트에서 런타임에 툴을 정의합니다.
+
+```ts
+async function createTool(ctx: ActionCtx, teamId: Id<"teams">) {
+  const myTool = tool({
+    description: "My tool",
+    parameters: z.object({...}).describe("The arguments for the tool"),
+    execute: async (args, options): Promise<BarReturnType> => {
+      return await ctx.runQuery(internal.foo.bar, args);
+    },
+  });
+}
+```
+
+두 경우 모두 args 및 options는 기본 AI SDK의 `tool` 함수와 일치합니다.
+
+타입 오류가 발생하면 execute 함수의 반환 타입을 주석 처리하고 필요한 경우 `ctx.run*`로 호출하는 함수의 `handler`의 반환 타입을 주석 처리하십시오.
+
+참고: 각 매개변수에 대한 세부 정보를 제공하기 위해 `.describe`와 함께 zod를 사용하는 것이 좋습니다. 이것은 LLM에 툴에 대한 설명을 제공하는 데 사용됩니다.
+
+### 툴에 사용자 지정 컨텍스트 추가하기
+
+툴의 컨텍스트에 추가 메타데이터가 있는 것이 유용한 경우가 많습니다.
+
+기본적으로 툴에 전달되는 컨텍스트는 다음이 있는 `ToolCtx`입니다:
+
+- `agent` - 호출하는 에이전트 인스턴스
+- `userId` - 호출과 연결된 사용자 ID(있는 경우)
+- `threadId` - 스레드 ID(있는 경우)
+- `messageId` - generate/stream에 전달된 프롬프트 메시지의 메시지 ID
+- `ActionCtx`의 모든 것(예: `auth`, `storage`, `runQuery` 등). 참고: 예약된 함수, 워크플로우 등에서 auth user는 `null`입니다.
+
+컨텍스트에 더 많은 필드를 추가하려면 호출에 사용자 지정 컨텍스트를 전달할 수 있습니다(예: `agent.generateText({ ...ctx, orgId: "123" })`).
+
+에이전트를 구성할 때 타입을 전달하여 컨텍스트의 타입을 적용할 수 있습니다.
+
+```ts
+const myAgent = new Agent<{ orgId: string }>(...);
+```
+
+그런 다음 툴에서 `orgId` 필드를 사용할 수 있습니다.
+
+```ts
+type MyCtx = ToolCtx & { orgId: string };
+
+const myTool = createTool({
+  args: z.object({ ... }),
+  description: "...",
+  handler: async (ctx: MyCtx, args) => {
+    // use ctx.orgId
+  },
+});
+```
+
+## LLM 또는 에이전트를 툴로 사용하기
+
+툴 호출 내에서 생성을 수행할 수 있습니다. 예를 들어 한 에이전트가 다른 에이전트에게 질문하도록 하려는 경우입니다.
+
+참고: 에이전트가 서로 호출하는 것을 툴 호출로 구조화할 필요는 없습니다. 대신 다른 컨텍스트를 기반으로 다음에 어떤 에이전트가 응답해야 하는지 결정하고 여러 에이전트가 동일한 스레드에 기여하도록 할 수 있습니다.
+
+에이전트를 툴 호출로 모델링하는 가장 간단한 방법은 각 툴 호출이 독립적인 스레드에서 작동하거나 스레드 없이 생성을 수행하도록 하는 것입니다. 그런 다음 출력이 다음 LLM 단계에서 사용할 툴 호출 결과로 반환됩니다. 이렇게 하면 부모 스레드에 툴 호출 결과를 명시적으로 저장할 **필요가 없습니다**.
+
+### 스레드 없이 직접 LLM 생성:
+
+```ts
+const llmTool = createTool({
+  description: "Ask a question to some LLM",
+  args: z.object({
+    message: z.string().describe("The message to ask the LLM"),
+  }),
+  handler: async (ctx, args): Promise<string> => {
+    const result = await generateText({
+      system: "You are a helpful assistant.",
+      // Pass through all messages from the current generation
+      prompt: [...options.messages, { role: "user", content: args.message }],
+      model: myLanguageModel,
+    });
+    return result.text;
+  },
+});
+```
+
+### 에이전트를 툴로 사용하기
+
+```ts
+const agentTool = createTool({
+  description: `Ask a question to agent ${agent.name}`,
+  args: z.object({
+    message: z.string().describe("The message to ask the agent"),
+  }),
+  handler: async (ctx, args, options): Promise<string> => {
+    const { userId } = ctx;
+    const { thread } = await agent.createThread(ctx, { userId });
+    const result = await thread.generateText(
+      {
+        // Pass through all messages from the current generation
+        prompt: [...options.messages, { role: "user", content: args.message }],
+      },
+      // Save all the messages from the current generation to this thread.
+      { storageOptions: { saveMessages: "all" } },
+    );
+    // Optionally associate the child thread with the parent thread in your own
+    // tables.
+    await saveThreadAsChild(ctx, ctx.threadId, thread.threadId);
+    return result.text;
+  },
+});
+```

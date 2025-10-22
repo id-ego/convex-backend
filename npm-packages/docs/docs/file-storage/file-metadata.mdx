@@ -1,0 +1,52 @@
+---
+title: "파일 메타데이터 접근하기"
+sidebar_label: "메타데이터"
+sidebar_position: 5
+description: "Convex에 저장된 파일 메타데이터에 접근하기"
+---
+
+import FileMetadata from "!!raw-loader!@site/../private-demos/snippets/convex/imagesMetadata.ts";
+import FileMetadataDeprecated from "!!raw-loader!@site/../private-demos/snippets/convex/fileMetadata.ts";
+
+저장된 모든 파일은 `"_storage"` 시스템 테이블의 문서로 반영됩니다.
+파일의 메타데이터는 [쿼리](/functions/query-functions.mdx)와 [뮤테이션](/functions/mutation-functions.mdx)에서 `db.system.get`과 `db.system.query`를 통해 접근할 수 있습니다:
+
+<TSAndJSSnippet
+  title="convex/images.ts"
+  sourceTS={FileMetadata}
+  sourceJS={FileMetadata}
+  highlightPatterns={["db.system.get\\(", "db.system.query\\("]}
+/>
+
+다음은 반환되는 문서의 예시입니다:
+
+```json
+{
+  "_creationTime": 1700697415295.742,
+  "_id": "3k7ty84apk2zy00ay4st1n5p9kh7tf8",
+  "contentType": "image/jpeg",
+  "sha256": "cb58f529b2ed5a1b8b6681d91126265e919ac61fff6a367b8341c0f46b06a5bd",
+  "size": 125338
+}
+```
+
+반환되는 문서는 다음 필드들을 포함합니다:
+
+- `sha256`: 파일 내용의 base16 인코딩된 sha256 체크섬
+- `size`: 파일의 크기(바이트 단위)
+- `contentType`: 업로드 시 제공된 경우 파일의 `ContentType`
+
+[대시보드](/dashboard/deployments/files.md)에서 메타데이터를 수동으로 확인할 수 있습니다.
+
+## 액션에서 메타데이터 접근하기 (더 이상 권장되지 않음)
+
+또는 [`storage.getMetadata()`](/api/interfaces/server.StorageReader#getmetadata) 함수를 사용하여 [액션](/functions/actions.mdx)과 [HTTP 액션](/functions/http-actions.mdx)에서 개별 파일 메타데이터에 접근할 수 있습니다:
+
+<TSAndJSSnippet
+  title="convex/images.ts"
+  sourceTS={FileMetadataDeprecated}
+  sourceJS={FileMetadataDeprecated}
+  highlightPatterns={["getMetadata\\("]}
+/>
+
+참고로 [`storage.getMetadata()`](/api/interfaces/server.StorageReader#getmetadata)는 [`FileMetadata`](/api/modules/server#filemetadata)를 반환하며, 이는 `db.system.get`의 결과와는 약간 다른 형태입니다.

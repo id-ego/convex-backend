@@ -1,0 +1,225 @@
+---
+title: "The Zen of Convex"
+slug: "zen"
+hidden: false
+sidebar_position: 500
+hide_table_of_contents: true
+description: "Convex best practices and design philosophy"
+---
+
+export function CategoryIcon(props) {
+  switch (props.title) {
+    case "Performance":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          {...props}
+        >
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M14.615 1.595a.75.75 0 01.359.852L12.982 9.75h7.268a.75.75 0 01.548 1.262l-10.5 11.25a.75.75 0 01-1.272-.71l1.992-7.302H3.75a.75.75 0 01-.548-1.262l10.5-11.25a.75.75 0 01.913-.143z"
+          />
+        </svg>
+      );
+    case "Architecture":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+        >
+          <path d="M11.584 2.376a.75.75 0 01.832 0l9 6a.75.75 0 11-.832 1.248L12 3.901 3.416 9.624a.75.75 0 01-.832-1.248l9-6z" />
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M20.25 10.332v9.918H21a.75.75 0 010 1.5H3a.75.75 0 010-1.5h.75v-9.918a.75.75 0 01.634-.74A49.109 49.109 0 0112 9c2.59 0 5.134.202 7.616.592a.75.75 0 01.634.74zm-7.5 2.418a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75zm3-.75a.75.75 0 01.75.75v6.75a.75.75 0 01-1.5 0v-6.75a.75.75 0 01.75-.75zM9 12.75a.75.75 0 00-1.5 0v6.75a.75.75 0 001.5 0v-6.75z"
+          />
+          <path d="M12 7.875a1.125 1.125 0 100-2.25 1.125 1.125 0 000 2.25z" />
+          //{" "}
+        </svg>
+      );
+    case "Development workflow":
+      return (
+        <svg
+          fill="currentColor"
+          viewBox="0 0 24 24"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden="true"
+          {...props}
+        >
+          <path
+            clipRule="evenodd"
+            fillRule="evenodd"
+            d="M2.25 6a3 3 0 013-3h13.5a3 3 0 013 3v12a3 3 0 01-3 3H5.25a3 3 0 01-3-3V6zm3.97.97a.75.75 0 011.06 0l2.25 2.25a.75.75 0 010 1.06l-2.25 2.25a.75.75 0 01-1.06-1.06l1.72-1.72-1.72-1.72a.75.75 0 010-1.06zm4.28 4.28a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z"
+          />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+export function ZenHeader({ title }) {
+  return (
+    <h2 className="zen-header">
+      {title} <CategoryIcon title={title} />
+    </h2>
+  );
+}
+
+export function TipIcon({ type }) {
+  switch (type) {
+    case "do":
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="w-6 h-6"
+        >
+          <path
+            fillRule="evenodd"
+            d="M2.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75S2.25 17.385 2.25 12zm13.36-1.814a.75.75 0 10-1.22-.872l-3.236 4.53L9.53 12.22a.75.75 0 00-1.06 1.06l2.25 2.25a.75.75 0 001.14-.094l3.75-5.25z"
+            clipRule="evenodd"
+          />
+        </svg>
+      );
+    case "do-not":
+      return (
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 24 24"
+          fill="currentColor"
+          className="w-6 h-6"
+        >
+          <path
+            fillRule="evenodd"
+            d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003zM12 8.25a.75.75 0 01.75.75v3.75a.75.75 0 01-1.5 0V9a.75.75 0 01.75-.75zm0 8.25a.75.75 0 100-1.5.75.75 0 000 1.5z"
+            clipRule="evenodd"
+          />
+        </svg>
+      );
+    default:
+      return null;
+  }
+}
+
+export function ZenTip({ type, title, children }) {
+  return (
+    <div className={`zen-tip zen-${type}`}>
+      <h3>
+        <TipIcon type={type} /> {title}
+      </h3>
+      {children}
+    </div>
+  );
+}
+
+<span className="convex-hero">
+Convex는 모든 요소가 개발자를 [성공의 구덩이](https://blog.codinghorror.com/falling-into-the-pit-of-success/)로 끌어들이도록 설계된 의견이 있는 프레임워크입니다.
+
+Zen of Convex는 개발자가 프로젝트를 이 멋진 구덩이에 빠뜨리는 데 도움이 되는 가이드라인 및 모범 사례 세트입니다.
+
+</span>
+
+<ZenHeader title="Performance" />
+
+<ZenTip type="do" title={<span><a href="/tutorial#how-convex-works">동기화 엔진</a>에 집중하기</span>} >
+
+    결정적이고 반응형인 데이터베이스가 Convex의 핵심인 데는 이유가 있습니다: 앱을 이러한 속성을 중심으로 더 많이 구축할수록 프로젝트가 시간이 지남에 따라 더 잘 운영됩니다. 프로젝트를 이해하고 리팩토링하기가 더 쉬워질 것입니다. 앱의 성능은 매우 빠르게 유지됩니다. 일관성이나 상태 관리 문제가 없을 것입니다.
+
+<Details summary="거의 모든 앱 읽기에 쿼리 사용하기">
+  쿼리는 애플리케이션과 작업에 데이터를 전파하는 반응형, 자동 캐시 가능, 일관성 있고 복원력 있는 방법입니다. 매우 드문 예외를 제외하고, 앱의 모든 읽기 작업은 쿼리 함수를 통해 이루어져야 합니다.
+</Details>
+
+<Details summary="동기화 엔진 함수를 가볍고 빠르게 유지하기">
+  일반적으로 뮤테이션과 쿼리는 수백 개 미만의 레코드로 작업해야 하며 100ms 미만으로 완료되도록 해야 합니다. 동기 트랜잭션이 이보다 훨씬 더 많은 작업을 포함하는 경우 빠르고 반응성 있는 앱을 유지하는 것은 거의 불가능합니다.
+</Details>
+
+<Details summary="액션을 아껴서 점진적으로 사용하기">
+  액션은 배치 작업 및/또는 외부 서비스와의 통합에 훌륭합니다. 매우 강력하지만 더 느리고 비용이 많이 들며, Convex는 동작에 대해 훨씬 적은 보장을 제공합니다. 따라서 쿼리 또는 뮤테이션으로 작업을 완료할 수 있는 경우 절대 액션을 사용하지 마세요.
+</Details>
+
+</ZenTip>
+
+<ZenTip type="do-not" title="클라이언트 측 상태 관리를 너무 복잡하게 하지 마세요">
+
+Convex는 앱의 클라이언트 라이브러리에 자체 캐싱 및 일관성 제어를 많이 구축했습니다. 바퀴를 재발명하는 대신 클라이언트 측 코드가 이러한 내장 성능 향상을 활용하도록 하세요.
+
+<Details summary="Convex가 캐싱 및 일관성을 처리하도록 하기">
+
+Convex에서 컴포넌트와 Convex 함수 사이에 자체 로컬 캐시 또는 상태 집계 레이어를 빠르게 구축하고 싶을 수 있습니다. Convex를 사용하면 대부분의 경우 이것이 필요하지 않습니다. 대부분의 경우 컴포넌트를 Convex 함수에 꽤 간단한 방식으로 바인딩할 수 있으며, 그냥 작동하고 충분히 빠릅니다.
+
+</Details>
+
+<Details summary="뮤테이션의 반환 값에 대해 신중하게 생각하기">
+  뮤테이션 반환 값은 앱의 상태 변경을 트리거하는 데 유용할 수 있지만, UI를 업데이트하기 위해 앱 내 상태를 설정하는 데 사용하는 것은 거의 좋은 아이디어가 아닙니다. 쿼리와 동기화 엔진이 그 일을 하도록 하세요.
+</Details>
+
+</ZenTip>
+
+<ZenHeader title="Architecture" />
+
+<ZenTip type="do" title='"그냥 코드"를 사용하여 서버 측 프레임워크 만들기'>
+  <p>
+    Convex의 내장 프리미티브는 꽤 낮은 수준입니다! 그냥 함수입니다. 인증 프레임워크는 어떻습니까? 객체-관계형 매핑은 어떻습니까? Convex가 일부 내장 기능을 제공할 때까지 기다려야 합니까? 아닙니다. 일반적으로 나머지 TypeScript 코드베이스에 사용하는 것과 동일한 방법을 사용하여 서버 측 Convex 코드의 구성 및 캡슐화 문제를 해결해야 합니다. 결국 이것이 Convex가 "그냥 코드"인 이유입니다!
+    [Stack](https://stack.convex.dev)에는 항상
+    [이러한](https://stack.convex.dev/functional-relationships-helpers)
+    [요구 사항](https://stack.convex.dev/wrappers-as-middleware-authentication)을 해결하는 방법의
+    [훌륭한](https://stack.convex.dev/row-level-security)
+    예제가 있습니다.
+  </p>
+</ZenTip>
+
+<ZenTip type="do-not" title="액션을 잘못 사용하지 마세요" >
+
+액션은 강력하지만 앱의 데이터 흐름에 어떻게 맞는지 의도적으로 생각하는 것이 중요합니다.
+
+<Details summary="앱에서 직접 액션을 호출하지 마세요">
+  일반적으로 브라우저에서 액션을 호출하는 것은 안티패턴입니다. 일반적으로 액션은 Convex 테이블에 있어야 하는 종속 레코드에서 실행됩니다. 따라서 해당 종속 레코드를 _쓰고_ 후속 액션을 백그라운드에서 실행하도록 _스케줄_하는 뮤테이션을 호출하여 액션을 트리거하는 것이 가장 좋습니다.
+</Details>
+
+<Details summary="'백그라운드 작업'이 아닌 '워크플로'로 생각하기">
+   액션이 관련된 경우 다음과 같은 효과 및 뮤테이션 체인을 작성하는 것이 유용합니다:
+
+액션 코드 &rarr; 뮤테이션 &rarr; 더 많은 액션 코드 &rarr; 뮤테이션.
+
+그러면 앱이나 다른 작업이 쿼리로 따라갈 수 있습니다.
+
+</Details>
+
+<Details summary="한 번에 한 단계씩 진행 상황 기록하기">
+  액션은 수천 개의 레코드로 작업하고 수십 개의 API를 호출할 _수_ 있지만, 일반적으로 더 작은 배치의 작업을 수행하고/또는 외부 서비스로 개별 변환을 수행하는 것이 가장 좋습니다. 그런 다음 물론 뮤테이션으로 진행 상황을 기록하세요. 이 패턴을 사용하면 문제를 쉽게 디버그하고, 부분 작업을 재개하고, 앱의 UI에서 증분 진행 상황을 보고할 수 있습니다.
+</Details>
+
+</ZenTip>
+
+<ZenHeader title="Development workflow" />
+
+<ZenTip type="do" title="대시보드를 곁에 두기">
+  <p>
+    대시보드를 사용하지 않고 Convex 프로젝트 작업을 하는 것은 눈을 감고 차를 운전하는 것과 같습니다. 대시보드를 사용하면 로그를 보고, 뮤테이션/쿼리/액션을 테스트 실행하고, 구성 및 코드베이스가 예상대로인지 확인하고, 테이블을 검사하고, 스키마를 생성하는 등의 작업을 수행할 수 있습니다. 빠른 개발 주기의 귀중한 부분입니다.
+  </p>
+</ZenTip>
+
+<ZenTip type="do-not" title="혼자 하지 마세요" >
+
+  <p>
+    이러한 [문서](https://docs.convex.dev),
+    [Stack](https://stack.convex.dev) 및 [커뮤니티](https://convex.dev/community) 사이에서 누군가가 _아마도_ 직면하고 있는 설계 또는 아키텍처 문제를 겪었을 것입니다. 전체 커뮤니티의 경험을 활용할 수 있는데 왜 어려운 방법으로 해결하려고 합니까?
+   </p>
+
+  <Details summary="Convex 개발자 검색 활용하기">
+  Convex 팀과 커뮤니티의 훌륭한 리소스가 너무 많아서 어디를 먼저 찾아야 할지 알기 어려울 수 있습니다. 이 모든 것을 빠르게 검색하려면
+    [포털이 있습니다](https://search.convex.dev)!
+  </Details>
+
+  <Details summary="Convex 커뮤니티에 참여하기">
+  까다로운 사용 사례에 갇혀 있든, Convex 팀에 질문이나 기능 요청이 있든, 구축한 놀라운 앱을 공유하고 다른 사람들이 배울 수 있도록 돕고 싶든, Convex 커뮤니티가 여러분을 위해 있습니다! [Discord](https://convex.dev/community)에서 파티에 참여하세요.
+  </Details>
+</ZenTip>

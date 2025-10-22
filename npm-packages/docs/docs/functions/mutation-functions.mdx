@@ -1,0 +1,157 @@
+---
+title: 뮤테이션
+sidebar_position: 20
+description: "데이터베이스에서 데이터 삽입, 업데이트 및 제거하기"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsExample.ts";
+import Constructor from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsConstructor.ts";
+import ArgsWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithoutValidation.ts";
+import ArgsWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithoutValidationJS.js";
+import ArgsWithValidation from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsArgsWithValidation.ts";
+import Context from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsContext.ts";
+import ContextDB from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsContextDB.ts";
+import Helper from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsHelper.ts";
+import HelperJS from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsHelperJS.js";
+import NPM from "!!raw-loader!@site/../private-demos/snippets/convex/mutationsNPM.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/src/mutationsCall.tsx";
+
+뮤테이션은 데이터베이스에서 데이터를 삽입, 업데이트 및 제거하고, 인증을 확인하거나 다른 비즈니스 로직을 수행하며, 선택적으로 클라이언트 애플리케이션에 응답을 반환합니다.
+
+다음은 명명된 인수를 받아 데이터베이스에 데이터를 쓰고 결과를 반환하는 예제 뮤테이션입니다:
+
+<TSAndJSSnippet
+  sourceTS={Example}
+  sourceJS={Example}
+  title="convex/myFunctions.ts"
+/>
+
+뮤테이션을 직접 작성하는 방법을 이해하려면 계속 읽어보세요.
+
+## 뮤테이션 이름
+
+뮤테이션은 쿼리와 동일한 명명 규칙을 따릅니다. [쿼리 이름](/functions/query-functions.mdx#query-names)을 참조하세요.
+
+명명된 export를 사용할 때 쿼리와 뮤테이션을 동일한 파일에 정의할 수 있습니다.
+
+## `mutation` 생성자
+
+Convex에서 뮤테이션을 선언하려면 `mutation` 생성자 함수를 사용합니다. 뮤테이션을 수행하는 `handler` 함수가 포함된 객체를 전달합니다:
+
+<TSAndJSSnippet
+  sourceTS={Constructor}
+  sourceJS={Constructor}
+  title="convex/myFunctions.ts"
+/>
+
+쿼리와 달리 뮤테이션은 값을 반환할 수도 있고 반환하지 않을 수도 있습니다.
+
+### 뮤테이션 인수
+
+쿼리와 마찬가지로 뮤테이션은 명명된 인수를 받아들이며, 인수 값은 `handler` 함수의 두 번째 매개변수의 필드로 액세스할 수 있습니다:
+
+<TSAndJSSnippet
+  sourceTS={ArgsWithoutValidationTS}
+  sourceJS={ArgsWithoutValidationJS}
+  title="convex/myFunctions.ts"
+/>
+
+인수 및 응답은 자동으로 직렬화 및 역직렬화되며 대부분의 값과 같은 JavaScript 데이터를 뮤테이션과 주고받을 수 있습니다.
+
+인수의 타입을 선언하고 검증하려면 `v` 검증자를 사용하는 `args` 객체를 추가합니다:
+
+<TSAndJSSnippet
+  sourceTS={ArgsWithValidation}
+  sourceJS={ArgsWithValidation}
+  title="convex/myFunctions.ts"
+/>
+
+지원되는 타입 및 검증자의 전체 목록은 [인수 검증](/functions/validation.mdx)을 참조하세요.
+
+handler 함수의 첫 번째 매개변수는 뮤테이션 컨텍스트용으로 예약되어 있습니다.
+
+### 뮤테이션 응답
+
+쿼리는 자동으로 직렬화 및 역직렬화되는 지원되는 [Convex 타입](/functions/validation.mdx)의 값을 반환할 수 있습니다.
+
+뮤테이션은 유효한 Convex 값이 아닌 `undefined`를 반환할 수도 있습니다. 뮤테이션이 `undefined`를 반환하면 **클라이언트에서 `null`로 변환됩니다**.
+
+### 뮤테이션 컨텍스트
+
+`mutation` 생성자는 [MutationCtx](/generated-api/server.md#mutationctx) 객체를 handler 함수의 첫 번째 매개변수로 전달하여 데이터베이스에 데이터를 쓰고 다른 Convex 기능을 사용할 수 있게 합니다:
+
+<TSAndJSSnippet
+  sourceTS={Context}
+  sourceJS={Context}
+  title="convex/myFunctions.ts"
+/>
+
+뮤테이션 컨텍스트의 어떤 부분을 사용할지는 뮤테이션이 수행해야 하는 작업에 따라 다릅니다:
+
+- 데이터베이스에서 읽고 쓰려면 `db` 필드를 사용합니다. `db.insert()`가 반환하는 Promise를 `await`할 수 있도록 handler 함수를 `async` 함수로 만듭니다:
+
+  <TSAndJSSnippet
+    sourceTS={ContextDB}
+    sourceJS={ContextDB}
+    title="convex/myFunctions.ts"
+  />
+
+  [데이터 쓰기](/database/writing-data.mdx)에 대해 자세히 알아보세요.
+
+- 파일 저장을 위한 업로드 URL을 생성하려면 `storage` 필드를 사용합니다. [파일 스토리지](/file-storage.mdx)에 대해 자세히 알아보세요.
+- 사용자 인증을 확인하려면 `auth` 필드를 사용합니다. [인증](/auth.mdx)에 대해 자세히 알아보세요.
+- 미래에 실행될 함수를 예약하려면 `scheduler` 필드를 사용합니다. [예약된 함수](/scheduling/scheduled-functions.mdx)에 대해 자세히 알아보세요.
+
+## 헬퍼를 통한 뮤테이션 코드 분할
+
+<>
+  {/* Fragment for Prettier */}
+  뮤테이션의 코드를 분할하거나 여러 Convex 함수에서 로직을 재사용하려는 경우 헬퍼 <LanguageSelector verbose /> 함수를 정의하고 호출할 수 있습니다:
+</>
+
+<TSAndJSSnippet
+  sourceTS={Helper}
+  sourceJS={HelperJS}
+  title="convex/myFunctions.ts"
+/>
+
+뮤테이션은 뮤테이션 컨텍스트가 쿼리 컨텍스트가 할 수 있는 모든 작업을 수행할 수 있으므로 [QueryCtx](/generated-api/server.md#queryctx)를 인수로 받는 헬퍼를 호출할 수 있습니다.
+
+헬퍼를 `export`하여 여러 파일에서 사용할 수 있습니다. Convex 함수 외부에서는 호출할 수 없습니다.
+
+TypeScript 타입에 대한 자세한 지침은 [서버 측 헬퍼 타입 주석 달기](/understanding/best-practices/typescript.mdx#type-annotating-server-side-helpers)를 참조하세요.
+
+## NPM 패키지 사용하기
+
+뮤테이션은 `node_modules`에 설치된 NPM 패키지를 가져올 수 있습니다. 모든 NPM 패키지가 지원되는 것은 아닙니다. 자세한 내용은 [런타임](/functions/runtimes.mdx#default-convex-runtime)을 참조하세요.
+
+```sh
+npm install @faker-js/faker
+```
+
+<TSAndJSSnippet sourceTS={NPM} sourceJS={NPM} title="convex/myFunctions.ts" />
+
+## 클라이언트에서 뮤테이션 호출하기
+
+[React](/client/react.mdx)에서 뮤테이션을 호출하려면 생성된 [`api`](/generated-api/api) 객체와 함께 [`useMutation`](/client/react.mdx#editing-data) 훅을 사용합니다.
+
+<TSAndJSSnippet sourceTS={Call} sourceJS={Call} title="src/myApp.tsx" />
+
+쿼리를 호출할 수 있는 모든 방법은 [React](/client/react.mdx) 클라이언트 문서를 참조하세요.
+
+뮤테이션이 [React](/client/react.mdx) 또는 [Rust](/client/rust.md) 클라이언트에서 호출되면 단일 순서가 지정된 큐에서 한 번에 하나씩 실행됩니다. 뮤테이션이 트리거된 순서와 다른 순서로 데이터베이스를 편집하는 것에 대해 걱정할 필요가 없습니다.
+
+## 트랜잭션
+
+뮤테이션은 **트랜잭션으로** 실행됩니다. 이것은 다음을 의미합니다:
+
+1. 트랜잭션 내의 모든 데이터베이스 읽기는 데이터베이스의 데이터에 대한 일관된 뷰를 가져옵니다. 실행 중간에 동시 업데이트가 데이터를 변경하는 것에 대해 걱정할 필요가 없습니다.
+2. 모든 데이터베이스 쓰기가 함께 커밋됩니다. 뮤테이션이 데이터베이스에 일부 데이터를 쓰지만 나중에 오류를 던지면 실제로 데이터베이스에 데이터가 기록되지 않습니다.
+
+이것이 작동하려면 쿼리와 유사하게 뮤테이션은 결정론적이어야 하며 타사 API를 호출할 수 없습니다. 타사 API를 호출하려면 [액션](/functions/actions.mdx)을 사용하세요.
+
+## 제한사항
+
+뮤테이션에는 한 번에 읽고 쓸 수 있는 데이터의 양에 제한이 있어 좋은 성능을 보장합니다. [읽기/쓰기 제한 오류](/functions/error-handling/error-handling.mdx#readwrite-limit-errors)에서 자세히 알아보세요.
+
+다른 제한사항에 대한 정보는 [제한사항](/production/state/limits.mdx)을 참조하세요.

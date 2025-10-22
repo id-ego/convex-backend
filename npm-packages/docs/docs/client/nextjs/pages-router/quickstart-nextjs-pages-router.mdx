@@ -1,0 +1,130 @@
+---
+title: Next.js Pages 빠른 시작
+sidebar_label: 빠른 시작
+hide_table_of_contents: true
+slug: "quickstart"
+description:
+  "쿼리, 뮤테이션 및 실시간 업데이트를 사용하여 반응형 작업 목록 앱을 빌드하여 Next.js Pages Router에서 Convex를 시작하세요."
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/sampleData.jsonl";
+import tasksJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/convex/tasks.js";
+import app from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/pages/_app.js";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/pages/index.js";
+
+Pages Router를 사용하여 Next.js 앱에서 Convex의 데이터를 쿼리하는 방법을 배워보세요.
+
+또는 이 빠른 시작의 [App Router](/quickstart/nextjs.mdx) 버전을 참조하세요.
+
+<StepByStep>
+  <Step title="React 앱 생성하기">
+    `npx create-next-app` 명령을 사용하여 Next.js 앱을 생성하세요.
+
+    모든 프롬프트에 대해 기본 옵션을 선택하세요(Enter 키 누르기).
+
+
+    ```sh
+    npx create-next-app@latest my-app --no-app --js
+    ```
+
+  </Step>
+  <Step title="Convex 클라이언트 및 서버 라이브러리 설치하기">
+    시작하려면 React 앱에서 Convex를 사용하기 위한
+    편리한 인터페이스를 제공하는 `convex`
+    패키지를 설치하세요.
+
+    앱으로 이동하여 `convex`를 설치하세요.
+
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+
+  </Step>
+  <Step title="Convex 개발 배포 설정하기">
+    다음으로 `npx convex dev`를 실행하세요. 이 명령은
+    GitHub로 로그인하고,
+    프로젝트를 생성하고, 프로덕션 및 배포 URL을 저장하라는 메시지를 표시합니다.
+
+    또한 백엔드 API 함수를 작성할 수 있는 `convex/` 폴더를 생성합니다. `dev` 명령은
+    클라우드의 개발 배포와 함수를 동기화하기 위해
+    계속 실행됩니다.
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스용 샘플 데이터 생성하기">
+    새 터미널 창에서 샘플 데이터가 포함된 `sampleData.jsonl`
+    파일을 생성하세요.
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="데이터베이스에 샘플 데이터 추가하기">
+    이제 프로젝트가 준비되었으니 `import` 명령을 사용하여
+    샘플 데이터가 포함된 `tasks` 테이블을
+    Convex 데이터베이스에 추가하세요.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스 쿼리 노출하기">
+    데이터를 로드하는 쿼리 함수가 포함된 새 파일 `tasks.js`를
+    `convex/` 폴더에 추가하세요.
+
+    이 파일에서 쿼리 함수를 내보내면
+    파일 및 내보내기 이름 뒤에 이름이 지정된 API 함수,
+    `api.tasks.get`이 선언됩니다.
+
+    <Snippet
+      source={tasksJs}
+      title="convex/tasks.js"
+    />
+
+  </Step>
+
+  <Step title="앱을 백엔드에 연결하기">
+    `pages/_app.js`에서 `ConvexReactClient`를 생성하고 앱을 감싸는 `ConvexProvider`에 전달하세요.
+
+    <Snippet
+      source={app}
+      title="pages/_app.js"
+      highlightPatterns={[ "Convex", ]}
+    />
+
+  </Step>
+
+  <Step title="앱에 데이터 표시하기">
+    `pages/index.js`에서 `useQuery` 훅을 사용하여 `api.tasks.get`
+    API 함수에서 가져오세요.
+
+    <Snippet
+      source={index}
+      title="pages/index.js"
+      highlightPatterns={[ "useQuery", "tasks", "text", "\\)\\)\\}" ]}
+    />
+
+  </Step>
+
+  <Step title="앱 시작하기">
+    앱을 시작하고 브라우저에서 [http://localhost:3000](http://localhost:3000)을 열어
+    작업 목록을 확인하세요.
+
+    ```sh
+    npm run dev
+    ```
+
+  </Step>
+
+</StepByStep>

@@ -1,0 +1,34 @@
+---
+title: "Bun"
+hidden: false
+sidebar_position: 200
+description: "Bun JavaScript 런타임에서 Convex 클라이언트 사용하기"
+---
+
+[Bun](https://bun.sh/)은 Convex 클라이언트를 사용하는 스크립트와 서버를 실행하는 데 사용할 수 있으며 Convex CLI도 실행할 수 있습니다.
+
+Convex는 Bun에서 단일 시점 쿼리, 뮤테이션 및 액션([HTTP 클라이언트](/api/classes/browser.ConvexHttpClient) 참조)과 쿼리 구독([ConvexClient](/api/classes/browser.ConvexClient) 참조)을 지원합니다.
+
+```js
+import { ConvexHttpClient, ConvexClient } from "convex/browser";
+import { api } from "./convex/_generated/api.js";
+
+// HTTP client
+const httpClient = new ConvexHttpClient(process.env.CONVEX_URL);
+httpClient.query(api.messages.list).then((messages) => {
+  console.log(messages);
+});
+
+// Subscription client
+const client = new ConvexClient(process.env.CONVEX_URL);
+const unsubscribe = client.onUpdate(api.messages.list, {}, (messages) =>
+  console.log(messages),
+);
+await Bun.sleep(1000);
+client.mutate(api.messages.send, {}, { body: "hello!", author: "me" });
+await Bun.sleep(1000);
+```
+
+## 코드 생성 없이 Bun에서 Convex 사용하기
+
+Convex 함수와 api 파일이 없는 경우 항상 `anyApi` 객체나 문자열을 사용할 수 있습니다. `api.folder.file.exportName`과 같은 api 참조는 `anyApi.folder.file.exportName` 또는 `"folder/file:exportName"`이 됩니다.

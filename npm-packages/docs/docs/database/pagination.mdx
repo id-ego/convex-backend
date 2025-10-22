@@ -1,0 +1,119 @@
+---
+title: "페이지네이션 쿼리"
+slug: "pagination"
+sidebar_position: 60
+description: "페이지네이션된 쿼리 로드하기"
+---
+
+import Messages from "!!raw-loader!@site/../demos/pagination/convex/messages.ts";
+import Download from "!!raw-loader!@site/../demos/pagination/src/download.ts";
+import SimpleCall from "!!raw-loader!@site/../demos/pagination/src/_simpleListing.tsx";
+import CallWithArgs from "!!raw-loader!@site/../demos/pagination/src/_listingWithArgument.tsx";
+
+페이지네이션 쿼리는 결과 목록을 점진적인 페이지로 반환하는 [쿼리](/functions/query-functions.mdx)입니다.
+
+이는 "더 보기" 버튼이 있는 컴포넌트나 사용자가 스크롤할 때 더 많은 결과가 로드되는 "무한 스크롤" UI를 구축하는 데 사용할 수 있습니다.
+
+**예제:**
+[페이지네이션 메시징 앱](https://github.com/get-convex/convex-demos/tree/main/pagination)
+
+Convex에서 페이지네이션을 사용하는 것은 다음과 같이 간단합니다:
+
+1. [`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate)를 호출하는 페이지네이션 쿼리 함수 작성하기.
+2. [`usePaginatedQuery`](/api/modules/react#usepaginatedquery) React 훅 사용하기.
+
+다른 Convex 쿼리와 마찬가지로, 페이지네이션 쿼리는 완전히 반응형입니다.
+
+## 페이지네이션 쿼리 함수 작성하기
+
+Convex는 커서 기반 페이지네이션을 사용합니다. 이는 페이지네이션 쿼리가 현재 페이지가 끝난 결과의 지점을 나타내는 [`Cursor`](/api/modules/server#cursor)라는 문자열을 반환한다는 것을 의미합니다. 더 많은 결과를 로드하려면 커서를 전달하여 쿼리 함수를 다시 호출하기만 하면 됩니다.
+
+Convex에서 이를 구축하려면 다음과 같은 쿼리 함수를 정의하세요:
+
+1. [`PaginationOptions`](/api/interfaces/server.PaginationOptions) 타입의 `paginationOpts` 속성을 가진 단일 인수 객체를 받습니다.
+   - `PaginationOptions`는 `numItems`와 `cursor` 필드를 가진 객체입니다.
+   - 이 인수를 [검증](/functions/validation.mdx)하려면 `"convex/server"`에서 내보낸 `paginationOptsValidator`를 사용하세요
+   - 인수 객체에는 다른 속성도 포함될 수 있습니다.
+2. [데이터베이스 쿼리](/database/reading-data/reading-data.mdx)에서 [`.paginate(paginationOpts)`](/api/interfaces/server.OrderedQuery#paginate)를 호출하고, `PaginationOptions`를 전달하여 그 결과를 반환합니다.
+   - [`PaginationResult`](/api/interfaces/server.PaginationResult)에서 반환된 `page`는 문서 배열입니다. 반환하기 전에 [`map`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/map)이나 [`filter`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/filter)를 적용할 수 있습니다.
+
+<TSAndJSSnippet
+  sourceTS={Messages}
+  sourceJS={Messages}
+  title="convex/messages.ts"
+  highlightPatterns={["paginationOpts"]}
+  snippet="list"
+/>
+
+### 추가 인수
+
+`paginationOpts` 외에 다른 인수를 받는 페이지네이션 쿼리 함수를 정의할 수 있습니다:
+
+<TSAndJSSnippet
+  sourceTS={Messages}
+  sourceJS={Messages}
+  snippet="listWithExtraArg"
+  title="convex/messages.ts"
+/>
+
+### 결과 변환하기
+
+`paginate`가 반환하는 객체의 `page` 속성(문서 배열을 포함)에 임의의 [변환](/database/reading-data/reading-data.mdx#more-complex-queries)을 적용할 수 있습니다:
+
+<TSAndJSSnippet
+  sourceTS={Messages}
+  sourceJS={Messages}
+  snippet="listWithTransformation"
+  title="convex/messages.ts"
+/>
+
+## React 컴포넌트 내에서 페이지네이션하기
+
+React 컴포넌트 내에서 페이지네이션하려면 [`usePaginatedQuery`](/api/modules/react#usepaginatedquery) 훅을 사용하세요. 이 훅은 현재 항목을 렌더링하고 더 많은 항목을 요청하는 간단한 인터페이스를 제공합니다. 내부적으로 이 훅은 연속 커서를 관리합니다.
+
+이 훅의 인수는:
+
+- 페이지네이션 쿼리 함수의 이름.
+- 쿼리 함수에 전달할 인수 객체 (`paginationOpts` 제외, 훅에서 주입됨).
+- 첫 번째 페이지에서 로드할 `initialNumItems`를 포함하는 옵션 객체.
+
+훅은 다음을 포함하는 객체를 반환합니다:
+
+- `results`: 현재 로드된 결과의 배열.
+- `isLoading` - 훅이 현재 결과를 로드 중인지 여부.
+- `status`: 페이지네이션의 상태. 가능한 상태는:
+  - `"LoadingFirstPage"`: 훅이 첫 번째 페이지의 결과를 로드 중입니다.
+  - `"CanLoadMore"`: 이 쿼리에 가져올 수 있는 항목이 더 있을 수 있습니다. 다른 페이지를 가져오려면 `loadMore`를 호출하세요.
+  - `"LoadingMore"`: 현재 다른 페이지의 결과를 로드 중입니다.
+  - `"Exhausted"`: 목록의 끝까지 페이지네이션했습니다.
+- `loadMore(n)`: 더 많은 결과를 가져오는 콜백. 상태가 `"CanLoadMore"`일 때만 더 많은 결과를 가져옵니다.
+
+<TSAndJSSnippet
+  sourceTS={SimpleCall}
+  sourceJS={SimpleCall}
+  snippet="example"
+  title="src/App.tsx"
+  highlightPatterns={["usePaginatedQuery\\(", "api.", "{}", "initialNumItems"]}
+/>
+
+함수가 추가 인수를 기대하는 경우 인수 객체에 추가 인수를 전달할 수도 있습니다:
+
+<TSAndJSSnippet
+  sourceTS={CallWithArgs}
+  sourceJS={CallWithArgs}
+  snippet="example"
+  title="src/App.tsx"
+  highlightPatterns={["author:"]}
+/>
+
+### 반응성
+
+다른 Convex 쿼리 함수와 마찬가지로, 페이지네이션 쿼리는 **완전히 반응형**입니다. 페이지네이션된 목록의 항목이 추가, 제거 또는 변경되면 React 컴포넌트가 자동으로 다시 렌더링됩니다.
+
+이것의 한 가지 결과는 **Convex에서 페이지 크기가 변경될 수 있다는 것**입니다! 10개 항목의 페이지를 요청한 다음 하나의 항목이 제거되면 이 페이지가 9개 항목만 갖도록 "축소"될 수 있습니다. 마찬가지로 새 항목이 추가되면 페이지가 초기 크기를 넘어 "확장"될 수 있습니다.
+
+## 수동으로 페이지네이션하기
+
+React 외부에서 페이지네이션하는 경우, 페이지네이션된 함수를 여러 번 수동으로 호출하여 항목을 수집할 수 있습니다:
+
+<TSAndJSSnippet title="download.ts" sourceTS={Download} sourceJS={Download} />

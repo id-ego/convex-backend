@@ -1,0 +1,67 @@
+---
+title: "OpenAPI 및 기타 언어"
+sidebar_label: "OpenAPI"
+sidebar_position: 325
+---
+
+import Load from "!!raw-loader!@site/../private-demos/snippets/convex/goClientExample.ts";
+import Go from "!!raw-loader!@site/../private-demos/snippets/goExample.txt";
+
+Convex는 Go, Java, C++를 포함한 많은 언어에 대한 명시적인 지원이 없습니다. 그러나 Convex 배포에서 [OpenAPI](https://swagger.io/specification/) 사양을 생성하여 현재 지원되지 않는 언어에 대한 타입 안전 클라이언트를 생성할 수 있습니다. 내부적으로 이는
+[HTTP API](/http-api)를 사용합니다. 즉, 쿼리가 반응형/실시간이 아닙니다.
+
+<BetaAdmonition feature="OAS 생성" verb="is" />
+
+## 설정
+
+<StepByStep>
+  <Step title="Convex Helpers npm 패키지 설치하기">
+    Open API 사양을 생성하는 CLI 명령이 포함된 `convex-helpers` 패키지를 설치하세요.
+
+    ```sh
+    npm install convex-helpers
+    ```
+
+  </Step>
+  <Step title="OpenAPI 사양을 생성하는 명령 실행하기">
+    이 명령을 실행하면 구성된 Convex 배포를 호출하고 그것을 기반으로 `convex-spec.yaml` 파일을 생성합니다. 명령에 `--help`를 전달하여 추가 플래그를 확인할 수 있습니다.
+
+    ```sh
+    npx convex-helpers open-api-spec
+    ```
+
+  </Step>
+  <Step title="타입 안전 클라이언트 생성하기">
+    별도의 도구를 사용하여 `convex-spec.yaml` 파일에서 클라이언트를 생성할 수 있습니다. 인기 있는 옵션으로는 [OpenAPI Tools](https://github.com/OpenAPITools/openapi-generator)와 [Swagger](https://swagger.io/tools/swagger-codegen/)가 있습니다.
+    ```yaml
+    # convex-spec.yaml
+    openapi: 3.0.3
+    info:
+      title: Convex App - OpenAPI 3.0
+      version: 0.0.0
+      servers:
+        - url: "{hostUrl}"
+      description: Convex App API
+      ...
+    ```
+  </Step>
+</StepByStep>
+
+## 예제
+
+다음은 이 워크플로우가 실제로 어떻게 보이는지 보여주는 코드 스니펫입니다. 이 스니펫에는 두 가지 다른 파일이 포함되어 있습니다:
+
+- `convex/load.ts` - Convex 함수 정의가 포함되어 있습니다
+- `convex.go` - 생성된 타입 안전 `HTTP` 클라이언트를 사용하는 `Go` 코드가 포함되어 있습니다. 이 클라이언트는
+  [OpenAPI Tools](https://github.com/OpenAPITools/openapi-generator) 패키지를 설치하고
+  `npx openapi-generator-cli generate -i convex-spec.yaml -g go -o convex_client` 명령을 실행하여 생성되었습니다
+
+<TSAndJSSnippet title="convex/load.ts" sourceTS={Load} sourceJS={Load} />
+
+<Snippet source={Go} title="convex.go" />
+
+## 제한사항
+
+- 인수 및 반환 값 유효성 검사기는 필수가 아니지만 OpenAPI 사양의 타입을 풍부하게 만듭니다. 유효성 검사기가 정의되지 않은 경우 기본적으로 `v.any()`를 유효성 검사기로 사용합니다.
+- Convex 배포 외부에서 내부 함수를 호출할 수 없습니다.
+- 현재 `bigints` 또는 `bytes`를 지원하지 않습니다.

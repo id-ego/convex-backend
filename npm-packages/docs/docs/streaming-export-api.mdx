@@ -1,0 +1,111 @@
+---
+title: "Streaming Export"
+sidebar_label: "Streaming Export"
+description: "Streaming data out of Convex"
+---
+
+Convex는 스트리밍 내보내기를 지원합니다. Convex는
+[Fivetran과 Airbyte](/production/integrations/streaming-import-export.md)를 위한 커넥터 구현을 제공합니다.
+이러한 커넥터는 다음 API를 사용합니다.
+
+스트리밍 내보내기 지원을 위해 [Professional 플랜](https://www.convex.dev/pricing)에 가입하세요.
+[스트리밍 내보내기 문서](/production/integrations/streaming-import-export.md)도 읽어보실 수 있습니다.
+
+<BetaAdmonition feature="Streaming Export HTTP APIs" verb="are" />
+
+스트리밍 내보내기 요청은 HTTP 헤더 `Authorization`을 통한 배포 관리자 권한이 필요합니다.
+값은 `Convex <access_key>` 형식이며, 여기서 액세스 키는 Convex 대시보드의 "Deploy key"에서 가져오며
+Convex 데이터에 대한 전체 읽기 및 쓰기 액세스 권한을 부여합니다.
+
+### GET `/api/json_schemas`
+
+JSON Schemas 엔드포인트는 테이블 목록을 나열하고, 각 테이블에 대해 문서가 어떻게 인코딩될지를
+[JSON Schema](https://json-schema.org/)로 설명합니다.
+이 엔드포인트는 스키마 전체에 걸쳐 `$description` 태그를 반환하여 직관적이지 않은 인코딩을 설명하고
+`Id` 필드가 참조하는 테이블과 같은 추가 정보를 제공합니다.
+
+**쿼리 매개변수**
+
+| Name        | Type    | Required | Description                                                                                                     |
+| ----------- | ------- | -------- | --------------------------------------------------------------------------------------------------------------- |
+| deltaSchema | boolean | n        | 설정 시, document_deltas와 list_snapshot이 반환하는 메타데이터 필드(`_ts`, `_deleted`, `_table`)를 포함합니다 |
+| format      | string  | n        | 값의 출력 형식. 유효한 값: [`json`]                                                                |
+
+### GET `/api/list_snapshot`
+
+`list_snapshot` 엔드포인트는 일관된 문서 스냅샷을 탐색합니다.
+전체 스냅샷을 탐색하려면 `list_snapshot`을 한 번 이상 호출해야 할 수 있습니다.
+
+**쿼리 매개변수**
+
+| Name      | Type   | Required | Description                                                                                                                                  |
+| --------- | ------ | -------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| snapshot  | int    | n        | 스냅샷을 계속할 데이터베이스 타임스탬프. 타임스탬프는 30일보다 오래되어서는 안 됩니다. 생략하면 최신 타임스탬프를 선택합니다. |
+| cursor    | string | n        | 스냅샷 페이지네이션 진행 상황을 나타내는 불투명 커서. 생략하면 스냅샷의 첫 번째 페이지부터 시작합니다.        |
+| tableName | string | n        | 제공되면 스냅샷을 해당 테이블로 필터링합니다. 생략하면 모든 테이블에 걸쳐 스냅샷을 제공합니다.                                                |
+| format    | string | n        | 값의 출력 형식. 유효한 값: [`json`]                                                                                             |
+
+**결과 JSON**
+
+| Field Name | Type              | Description                                                                                             |
+| ---------- | ----------------- | ------------------------------------------------------------------------------------------------------- |
+| values     | List[ConvexValue] | 요청된 형식의 Convex 값 목록. 각 값에는 추가 필드 `_ts`와 `_table`이 포함됩니다.     |
+| hasMore    | boolean           | 스냅샷에 더 많은 페이지가 있으면 True입니다.                                                           |
+| snapshot   | int               | 스냅샷이 생성된 데이터베이스 타임스탬프를 나타내는 값입니다.                         |
+| cursor     | string            | 주어진 페이지의 진행 상황 끝을 나타내는 불투명 커서. 후속 호출에 전달하세요. |
+
+예상 API 사용법 (의사 코드):
+
+```python
+def list_full_snapshot()
+    snapshot_values = []
+    snapshot = None
+    cursor = None
+    while True:
+        result = api.list_snapshot(cursor, snapshot)
+        snapshot_values.extend(result.values)
+        (cursor, snapshot) = (result.cursor, result.snapshot)
+        if !result.hasMore:
+            break
+    return (snapshot_values, result.snapshot)
+```
+
+### GET `/api/document_deltas`
+
+`document_deltas` 엔드포인트는 문서의 변경 로그를 탐색하여 변경 순서대로 새로운, 업데이트된, 삭제된 문서를 찾습니다.
+이 순서는 반환된 문서의 `_ts` 필드로 제공됩니다. 삭제는 `_id`, `_ts`, `_deleted: true` 필드가 있는
+JSON 객체로 표현됩니다.
+
+**쿼리 매개변수**
+
+| Name      | Type   | Required | Description                                                                                                                              |
+| --------- | ------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| cursor    | int    | y        | 이후로 문서 델타 스트리밍을 계속할 데이터베이스 타임스탬프. 초기 값은 list_snapshot에서 반환된 `snapshot` 필드입니다. |
+| tableName | string | n        | 제공되면 문서 델타를 해당 테이블로 필터링합니다. 생략하면 모든 테이블에 걸쳐 델타를 제공합니다.                                       |
+| format    | string | n        | 값의 출력 형식. 유효한 값: [`json`]                                                                                         |
+
+**결과 JSON**
+
+| Field Name | Type              | Description                                                                                                                                    |
+| ---------- | ----------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| values     | List[ConvexValue] | 요청된 형식의 Convex 값 목록. 각 값에는 `_ts`와 `_table`에 대한 추가 필드가 포함됩니다. 삭제에는 `_deleted` 필드가 포함됩니다. |
+| hasMore    | boolean           | 스냅샷에 더 많은 페이지가 있으면 True입니다.                                                                                                  |
+| cursor     | int               | 페이지 끝의 데이터베이스 타임스탬프를 나타내는 값. document_deltas의 후속 호출에 전달하세요.                            |
+
+예상 API 사용법 (의사 코드):
+
+```python
+def delta_sync(delta_cursor):
+    delta_values = []
+    while True:
+        result = api.document_deltas(cursor)
+        delta_values.extend(result.values)
+        cursor = result.cursor
+        if !hasMore:
+            break
+    return (delta_values, delta_cursor)
+
+(snapshot_values, delta_cursor) = list_full_snapshot()
+(delta_values, delta_cursor) = delta_sync(delta_cursor)
+# Save delta_cursor for the next sync
+```

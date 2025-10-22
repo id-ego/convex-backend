@@ -1,0 +1,12 @@
+인증 플로우는 내부적으로 다음과 같이 작동합니다:
+
+1. 사용자가 로그인 버튼을 클릭합니다
+2. 사용자는 {props.provider}에서 구성한 방법을 통해 로그인하는 페이지로 리디렉션됩니다
+3. 로그인 성공 후 {props.provider}는 사용자를 다시 페이지로 리디렉션하거나, {props.configProp}를 통해 구성한 다른 페이지로 리디렉션합니다.
+4. 이제 {props.providerProvider}는 사용자가 인증되었음을 알게 됩니다.
+5. {props.integrationProvider}가 {props.provider}에서 인증 토큰을 가져옵니다.
+6. `ConvexReactClient`가 이 토큰을 Convex 백엔드로 전달하여 검증합니다
+7. Convex 백엔드는 {props.provider}에서 공개 키를 가져와서 토큰의 서명이 유효한지 확인합니다.
+8. `ConvexReactClient`는 인증 성공을 통지받고, {props.integrationProvider}는 이제 사용자가 Convex로 인증되었음을 알게 됩니다. `useConvexAuth`는 `isAuthenticated: true`를 반환하고 `Authenticated` 컴포넌트가 자식 요소를 렌더링합니다.
+
+{props.integrationProvider}는 사용자가 백엔드와의 인증 상태를 유지하도록 필요할 때 토큰을 다시 가져오는 작업을 처리합니다.

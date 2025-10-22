@@ -1,0 +1,81 @@
+---
+title: 대시보드 임베딩
+sidebar_position: 20
+---
+
+Convex는 iframe을 통해 임베딩 가능한 호스팅 대시보드를 제공합니다. 대시보드 임베딩은
+[Convex Chef](https://chef.convex.dev)와 같은 AI 앱 생성기를 구축하는 개발자에게 유용합니다.
+
+https://dashboard-embedded.convex.dev에 `<iframe>`을 추가하여 Convex 대시보드를 임베딩할 수 있습니다.
+일반적으로 임베딩된 대시보드는 사용자가 사용하기 위해 자격 증명을 입력해야 하지만,
+iframe에 [`postMessage`](https://developer.mozilla.org/en-US/docs/Web/API/Window/postMessage)를
+통해 배포 자격 증명을 제공하여 로그인 단계를 건너뛸 수 있습니다.
+
+`postMessage`를 사용할 때 자격 증명이 수신될 때까지 지연이 있을 수 있습니다.
+자격 증명이 수신될 때까지 기본 로그인 페이지가 표시되므로,
+로그인 화면이 깜빡이는 것을 방지하기 위해 렌더링된 iframe을 표시하기 전에 지연을 추가하는 것이 좋습니다.
+
+<Admonition type="caution" title="클라이언트 측에서 자격 증명을 공유합니다">
+  임베딩된 대시보드에서 인증하기 위해 `postMessage`를 사용하면,
+  배포 키가 최종 사용자와 공유됩니다. [OAuth
+  Application](/platform-apis/oauth-applications)과 같이
+  사용자와 자격 증명을 공유하는 것이 안전한 경우에만 이 방법을 사용하세요.
+</Admonition>
+
+`postMessage`에 필요한 정보:
+
+- `deploymentUrl`: 배포 클라우드 URL. [Create project API](/management-api/create-project)로
+  프로젝트를 생성할 때 반환됩니다.
+- `deploymentName`: 배포의 읽기 가능한 식별자. [Create project API](/management-api/create-project)로
+  프로젝트를 생성할 때 반환됩니다.
+- `adminKey`: 지정된 `deploymentName`에 범위가 지정된 배포 키.
+  [Create deploy key API](/management-api/create-deploy-key)로 검색할 수 있습니다.
+
+다음은 React 애플리케이션에 Convex 대시보드를 임베딩한 예입니다:
+
+```tsx
+import { useEffect, useRef } from "react";
+
+export function Dashboard({
+  deploymentUrl,
+  deploymentName,
+  deployKey,
+}: {
+  deploymentUrl: string;
+  deploymentName: string;
+  deployKey: string;
+}) {
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      // We first wait for the iframe to send a dashboard-credentials-request message.
+      // This makes sure that we don't send the credentials until the iframe is ready.
+      if (event.data?.type !== "dashboard-credentials-request") {
+        return;
+      }
+      iframeRef.current?.contentWindow?.postMessage(
+        {
+          type: "dashboard-credentials",
+          adminKey: deployKey,
+          deploymentUrl,
+          deploymentName,
+        },
+        "*",
+      );
+    };
+
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [deploymentUrl, adminKey, deploymentName]);
+
+  return (
+    <iframe
+      ref={iframeRef}
+      // You can also default on other pages, for instance /functions, /files or /logs
+      src="https://dashboard-embedded.convex.dev/data"
+      allow="clipboard-write"
+    />
+  );
+}
+```

@@ -1,0 +1,63 @@
+---
+title: 내부 함수
+sidebar_position: 40
+description: "다른 Convex 함수에서만 호출할 수 있는 함수"
+---
+
+import Definition from "!!raw-loader!@site/../private-demos/snippets/convex/plans.ts";
+import Call from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsCall.ts";
+import DefinitionWithoutValidationTS from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsDefinitionWithoutValidation.ts";
+import DefinitionWithoutValidationJS from "!!raw-loader!@site/../private-demos/snippets/convex/internalFunctionsDefinitionWithoutValidationJS.js";
+
+내부 함수는 다른 [함수](/functions.mdx)에서만 호출할 수 있으며 [Convex 클라이언트](/client/react.mdx)에서 직접 호출할 수 없습니다.
+
+기본적으로 Convex 함수는 공개되어 있으며 클라이언트에서 액세스할 수 있습니다. 공개 함수는 악의적인 사용자가 예상치 못한 방식으로 호출하여 놀라운 결과를 초래할 수 있습니다. 내부 함수는 이러한 위험을 완화하는 데 도움이 됩니다. 클라이언트에서 호출해서는 안 되는 로직을 작성할 때마다 내부 함수를 사용하는 것이 좋습니다.
+
+내부 함수는 애플리케이션의 공개 표면적을 줄여 위험을 완화하는 데 도움이 되지만 [인수 검증](/functions/validation.mdx) 및/또는 [인증](/auth/functions-auth.mdx)을 사용하여 내부 불변성을 검증할 수 있습니다.
+
+## 내부 함수 사용 사례
+
+내부 함수를 활용하는 방법:
+
+- `runQuery` 및 `runMutation`을 통해 [액션](/functions/actions.mdx#action-context)에서 호출
+- `runQuery`, `runMutation`, `runAction`을 통해 [HTTP 액션](/functions/http-actions.mdx)에서 호출
+- 다른 함수에서 나중에 실행되도록 [예약](/scheduling/scheduled-functions.mdx)
+- [cron 작업](/scheduling/cron-jobs.mdx)에서 주기적으로 실행되도록 예약
+- [대시보드](/dashboard/deployments/functions.md#running-functions)를 사용하여 실행
+- [CLI](/cli.md#run-convex-functions)에서 실행
+
+## 내부 함수 정의하기
+
+내부 함수는 `internalQuery`, `internalMutation` 또는 `internalAction`을 사용하여 정의됩니다. 예를 들어:
+
+<TSAndJSSnippet
+  title="convex/plans.ts"
+  sourceTS={Definition}
+  sourceJS={Definition}
+  highlightPatterns={["internalMutation"]}
+/>
+
+내부 함수에 복잡한 객체를 전달해야 하는 경우 인수 검증을 사용하지 않는 것을 선호할 수 있습니다. 하지만 `internalQuery` 또는 `internalMutation`을 사용하는 경우 쿼리 또는 뮤테이션이 데이터베이스의 최신 상태로 작업하도록 하기 위해 문서 대신 문서 ID를 전달하는 것이 좋습니다.
+
+<Details summary="인수 검증이 없는 내부 함수">
+
+<TSAndJSSnippet
+  title="convex/plans.ts"
+  sourceTS={DefinitionWithoutValidationTS}
+  sourceJS={DefinitionWithoutValidationJS}
+  highlightPatterns={[": {"]}
+/>
+
+</Details>
+
+## 내부 함수 호출하기
+
+내부 함수는 [`internal`](/generated-api/api#internal) 객체를 사용하여 액션에서 호출하고 액션 및 뮤테이션에서 예약할 수 있습니다.
+
+예를 들어, 위에서 정의한 내부 `plans.markPlanAsProfessional` 뮤테이션을 호출하는 공개 `upgrade` 액션을 고려해 보세요:
+
+<TSAndJSSnippet title="convex/changes.ts" sourceTS={Call} sourceJS={Call} />
+
+이 예제에서 사용자는 `upgrade` 액션을 거치지 않고 `internal.plans.markPlanAsProfessional`을 직접 호출할 수 없어야 합니다. 그렇게 한다면 무료 업그레이드를 받게 됩니다.
+
+공개 함수와 내부 함수를 동일한 파일에 정의할 수 있습니다.

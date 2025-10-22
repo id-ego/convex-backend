@@ -1,0 +1,89 @@
+---
+title: "TanStack Start"
+sidebar_label: "TanStack Start"
+description: "Convex가 TanStack Start와 작동하는 방식"
+---
+
+[TanStack Start](https://tanstack.com/start/latest)는 최고 수준의 타입 안전 라우팅을 갖춘 새로운 React 웹 프레임워크입니다.
+
+Convex와 함께 사용하면 TanStack Start는 다음을 제공합니다:
+
+- React Query(TanStack Query의 React 클라이언트)를 사용한 실시간 업데이트 쿼리
+- SSR에서 클라이언트의 실시간으로의 구독 세션 재개
+- 로더 기반 프리로딩 및 프리페칭
+- SSR 중 일관된 논리적 쿼리 타임스탬프
+- 컴포넌트 로컬 SSR 옵트인
+
+그리고 더 많은 것들!
+
+이 페이지는 React Query를 통해 Convex를 TanStack Start와 함께 사용하는 권장 방법을 설명합니다. 표준 Convex React 훅은 React Query 없이도 TanStack Start와 함께 작동하며, [React Query 훅](/client/tanstack/tanstack-query/index.mdx)도 TanStack Start 없이 작동합니다! 그러나 세 가지를 모두 사용하는 것이 최적의 조합입니다.
+
+<Admonition type="caution" title="TanStack Start는 베타 버전입니다">
+  TanStack Start는 현재 베타 버전인 새로운 React 프레임워크입니다. 오늘 사용할 수 있지만 안정적인 릴리스 이전에 주요 변경 사항이 발생할 수 있습니다.
+</Admonition>
+
+## 시작하기
+
+새 TanStack Start 프로젝트에 Convex를 추가하려면 [TanStack Start 빠른 시작](/quickstart/tanstack-start.mdx)을 따르세요.
+
+## React Query와 함께 Convex 사용하기
+
+[React Query 훅](/client/tanstack/tanstack-query/index.mdx)에 대해 자세히 읽을 수 있지만 TanStack Start와 관련된 몇 가지 하이라이트가 있습니다.
+
+### 쿼리 구독 유지하기
+
+React Query의 Convex 쿼리는 쿼리를 구독한 마지막 컴포넌트가 마운트 해제된 후에도 계속 업데이트를 수신합니다. 이 동작의 기본값은 5분이며 이 값은 [`gcTime`](https://tanstack.com/query/latest/docs/framework/react/guides/caching)으로 구성됩니다.
+
+이는 쿼리 결과가 이미 로드된 이유를 디버깅할 때 알아두면 유용합니다. 클라이언트 측 탐색의 경우 구독이 이미 활성화되어 있는지 여부는 세션에서 이전에 방문한 페이지에 따라 달라질 수 있습니다.
+
+### Convex React 훅 사용하기
+
+[`usePaginatedQuery`](/api/modules/react#usepaginatedquery)와 같은 [Convex React](/client/react.mdx) 훅은 TanStack 훅과 함께 사용할 수 있습니다. 이러한 훅은 동일한 Convex 클라이언트를 참조하므로 이들이 결합될 때에도 앱에는 여전히 하나의 일관된 쿼리 결과 세트만 있습니다.
+
+## 서버 측 렌더링
+
+Convex와 함께 TanStack Start 및 Query를 사용하면 클라이언트에서 Convex 쿼리를 실시간으로 업데이트하는 동시에 [서버 렌더링](https://tanstack.com/query/v5/docs/framework/react/guides/ssr)하기가 특히 쉽습니다. [`useSuspenseQuery()`](https://tanstack.com/query/latest/docs/framework/react/reference/useSuspenseQuery)는 이를 수행하는 가장 간단한 방법입니다:
+
+```ts
+const { data } = useSuspenseQuery(convexQuery(api.messages.list, {}));
+```
+
+### 일관된 클라이언트 뷰
+
+브라우저에서 모든 Convex 쿼리 구독은 데이터베이스의 일관되고 동일한 논리적 타임스탬프 뷰를 제공합니다. 하나의 쿼리 결과가 주어진 뮤테이션 트랜잭션을 반영하면 다른 모든 쿼리 결과도 마찬가지입니다.
+
+서버 측 렌더링은 일반적으로 특별한 경우입니다. 상태 저장 WebSocket 세션 대신 서버에서 쿼리 결과를 임시로 가져오는 것이 더 간단합니다. 이로 인해 하나의 REST 엔드포인트가 뮤테이션 실행 전에 결과를 반환하고 다른 엔드포인트가 해당 변경 후에 결과를 반환하는 것과 유사한 불일치가 발생할 수 있습니다.
+
+TanStack Start에서는 각 쿼리와 함께 타임스탬프를 보내서 이 문제를 방지합니다. Convex는 모든 쿼리에 동일한 타임스탬프를 사용합니다.
+
+### 로더
+
+클라이언트 측 탐색을 더 빠르게 하려면 경로에 [로더](https://tanstack.com/router/latest/docs/framework/react/guide/external-data-loading#using-loaders-to-ensure-data-is-loaded)를 추가할 수 있습니다. 기본적으로 로더는 해당 페이지에 대한 링크 위로 마우스를 가져갈 때 실행됩니다.
+
+```ts
+export const Route = createFileRoute('/posts')({
+  loader: async (opts) => {
+    await opts.context.queryClient.ensureQueryData(
+      convexQuery(api.messages.list, {}),
+    );
+  };
+  component: () => {
+    const { data } = useSuspenseQuery(convexQuery(api.messages.list, {}));
+    return (
+      <div>
+	{data.map((message) => (
+	  <Message key={message.id} post={message} />
+	))}
+      </div>
+    );
+  },
+})
+```
+
+## 인증
+
+Start의 클라이언트 측 인증은 [Convex를 사용한 클라이언트 측 인증](https://docs.convex.dev/auth)이 React에서 일반적으로 작동하는 방식으로 작동합니다. TanStack Start가 클라이언트 측 프레임워크로 잘 작동하기 때문입니다.
+
+서버에서도 인증된 Convex 호출을 하기 위해 Clerk 인증을 사용하려면 [TanStack Start + Clerk 가이드](/client/tanstack/tanstack-start/clerk.mdx)를 참조하세요.
+
+Clerk는 TanStack의 공식 파트너입니다. 설정 가이드를 참조하세요.

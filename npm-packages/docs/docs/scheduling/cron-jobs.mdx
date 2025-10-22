@@ -1,0 +1,40 @@
+---
+title: "Cron Jobs"
+sidebar_position: 2
+description: "Schedule recurring functions in Convex"
+---
+
+import Example from "!!raw-loader!@site/../private-demos/snippets/convex/crons.ts";
+
+Convex를 사용하면 정기적으로 실행되는 함수를 스케줄링할 수 있습니다. 예를 들어, cron job을 사용하여 정기적인 간격으로 데이터를 정리하거나, 매월 같은 시간에 알림 이메일을 보내거나, 매주 토요일마다 백업을 스케줄링할 수 있습니다.
+
+**예제:**
+[Cron Jobs](https://github.com/get-convex/convex-demos/tree/main/cron-jobs)
+
+## cron job 정의하기
+
+cron job은 `convex/` 디렉토리의 `crons.ts` 파일에 정의되며 다음과 같이 작성됩니다:
+
+<TSAndJSSnippet title="convex/crons.ts" sourceTS={Example} sourceJS={Example} />
+
+첫 번째 인수는 cron job의 고유 식별자입니다.
+
+두 번째 인수는 함수가 실행되어야 하는 스케줄입니다. 아래의 [지원되는 스케줄](/scheduling/cron-jobs.mdx#supported-schedules)을 참조하세요.
+
+세 번째 인수는 public 함수 또는 [internal 함수](/functions/internal-functions.mdx)의 이름으로, [mutation](/functions/mutation-functions.mdx) 또는 [action](/functions/actions.mdx) 중 하나입니다.
+
+## 지원되는 스케줄
+
+- [`crons.interval()`](/api/classes/server.Crons#interval)은 지정된 `seconds`, `minutes` 또는 `hours`마다 함수를 실행합니다. 첫 번째 실행은 cron job이 Convex에 처음 배포될 때 발생합니다. 전통적인 cron과 달리, 이 옵션을 사용하면 초 단위의 세밀한 제어가 가능합니다.
+- [`crons.cron()`](/api/classes/server.Crons#cron)은 공백으로 구분된 다섯 개의 필드를 가진 문자열로 cron job을 지정하는 전통적인 방법입니다<nobr>(예: `"* * * * *"`)</nobr>. cron 구문의 시간은 UTC 타임존입니다. [Crontab Guru](https://crontab.guru/)는 이 형식의 스케줄을 이해하고 생성하는 데 유용한 리소스입니다.
+- [`crons.hourly()`](/api/classes/server.Crons#cron), [`crons.daily()`](/api/classes/server.Crons#daily), [`crons.weekly()`](/api/classes/server.Crons#weekly), [`crons.monthly()`](/api/classes/server.Crons#monthly)는 명시적으로 이름이 지정된 인수를 사용하여 일반적인 cron 스케줄에 대한 대안 구문을 제공합니다.
+
+## cron job 확인하기
+
+[Convex 대시보드의 cron job 뷰](/dashboard/deployments/schedules.md#cron-jobs-ui)에서 모든 cron job을 확인할 수 있습니다. 로그 및 히스토리 뷰에서 추가, 업데이트 및 삭제된 cron job을 볼 수 있습니다. cron job의 이전 실행 결과도 로그 뷰에서 확인할 수 있습니다.
+
+## 에러 처리
+
+Mutation과 action은 스케줄링된 함수에 대한 [에러 처리](/scheduling/scheduled-functions.mdx#error-handling)에 설명된 것과 동일한 보장을 제공합니다.
+
+각 cron job의 실행은 한 번에 최대 하나만 실행될 수 있습니다. cron job으로 스케줄링된 함수가 실행되는 데 너무 오래 걸리는 경우, 실행이 뒤처지지 않도록 다음 cron job 실행이 건너뛰어질 수 있습니다. 이전 실행이 여전히 실행 중이어서 cron job의 스케줄링된 실행을 건너뛰는 경우, 대시보드의 로그 뷰에서 볼 수 있는 메시지가 기록됩니다.

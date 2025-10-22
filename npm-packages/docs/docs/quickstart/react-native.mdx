@@ -1,0 +1,118 @@
+---
+title: React Native 빠른 시작
+sidebar_label: React Native
+description: "React Native Expo 프로젝트에 Convex 추가하기"
+hide_table_of_contents: true
+sidebar_position: 300
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/expo/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/expo/convex/tasks.ts";
+import layout from "!!raw-loader!@site/../private-demos/quickstarts/expo/app/_layout.tsx";
+import index from "!!raw-loader!@site/../private-demos/quickstarts/expo/app/index.tsx";
+
+React Native 앱에서 Convex 데이터를 쿼리하는 방법을 알아보세요.
+
+<StepByStep>
+  <Step title="React Native 앱 생성하기">
+    `npx create-expo-app` 명령을 사용하여 React Native 앱을 생성하세요.
+
+    ```sh
+    npx create-expo-app my-app
+    ```
+
+  </Step>
+  <Step title="Convex 클라이언트 및 서버 라이브러리 설치하기">
+    시작하려면 React 앱에서 Convex를 사용하기 위한 편리한 인터페이스를 제공하는 `convex` 패키지를 설치하세요.
+
+    앱으로 이동하여 `convex`를 설치하세요.
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+
+  </Step>
+  <Step title="Convex 개발 배포 설정하기">
+    다음으로, `npx convex dev`를 실행하세요. 이것은 GitHub로 로그인하고, 프로젝트를 생성하고, 프로덕션 및 배포 URL을 저장하라는 메시지를 표시합니다.
+
+    또한 백엔드 API 함수를 작성할 수 있는 `convex/` 폴더를 생성합니다. `dev` 명령은 계속 실행되면서 함수를 클라우드의 개발 배포와 동기화합니다.
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스용 샘플 데이터 생성하기">
+    샘플 데이터가 포함된 `sampleData.jsonl` 파일을 생성하세요.
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="데이터베이스에 샘플 데이터 추가하기">
+    이제 프로젝트가 준비되었으므로 `import` 명령을 사용하여 샘플 데이터가 포함된 `tasks` 테이블을 Convex 데이터베이스에 추가하세요.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스 쿼리 노출하기">
+    `convex/` 폴더에 데이터를 로드하는 쿼리 함수가 포함된 새 파일 `tasks.ts`를 추가하세요.
+
+    이 파일에서 쿼리 함수를 내보내면 파일과 내보내기 이름으로 명명된 API 함수 `api.tasks.get`이 선언됩니다.
+
+    <Snippet
+      source={tasks}
+      title="convex/tasks.ts"
+    />
+
+  </Step>
+
+  <Step title="Expo 프로젝트 재설정하기">
+    아직 하지 않았다면 Expo 프로젝트를 재설정하여 새로운 `app` 디렉토리를 얻으세요.
+
+    ```
+    npm run reset-project
+    ```
+
+  </Step>
+
+  <Step title="앱을 백엔드에 연결하기">
+    `_layout.tsx`에서 `ConvexReactClient`를 생성하고 이를 컴포넌트 트리를 래핑하는 `ConvexProvider`에 전달하세요.
+
+    <Snippet
+      source={layout}
+      title="app/_layout.tsx"
+      highlightPatterns={[ "Convex", "get-random", "CONVEX", "unsaved", "}\\);", ]}
+    />
+
+  </Step>
+
+  <Step title="앱에 데이터 표시하기">
+    `index.tsx`에서 `useQuery` 훅을 사용하여 `api.tasks.get` API에서 데이터를 가져오세요.
+
+    <Snippet
+      source={index}
+      title="app/index.tsx"
+      highlightPatterns={[ "api", "useQuery", "tasks" ]}
+    />
+
+  </Step>
+
+  <Step title="앱 시작하기">
+    앱을 시작하고, 제공된 QR 코드를 휴대전화로 스캔하여 화면 중앙에 직렬화된 작업 목록을 확인하세요.
+
+    ```sh
+    npm start
+    ```
+
+  </Step>
+</StepByStep>
+
+React Native는 React 웹과 동일한 라이브러리를 사용합니다. 전체 [React 문서](/client/react.mdx)를 참조하세요.

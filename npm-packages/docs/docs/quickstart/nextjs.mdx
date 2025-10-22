@@ -1,0 +1,165 @@
+---
+title: Next.js 빠른 시작
+sidebar_label: Next.js
+description: "Next.js 프로젝트에 Convex 추가하기"
+hide_table_of_contents: true
+sidebar_position: 200
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/nextjs/sampleData.jsonl";
+import layout from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir/app/layout.tsx";
+import ConvexClientProvider from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir/app/ConvexClientProvider.tsx";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir/convex/tasks.ts";
+import page from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir/app/page.tsx";
+import layoutJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir-js/app/layout.js";
+import ConvexClientProviderJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir-js/app/ConvexClientProvider.jsx";
+import tasksJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir-js/convex/tasks.js";
+import pageJs from "!!raw-loader!@site/../private-demos/quickstarts/nextjs-app-dir-js/app/page.js";
+
+<Admonition type="tip" title="Convex + Next.js">
+
+Convex는 Next.js와 빠르고 쉽게 통합되는 올인원 백엔드 및 데이터베이스입니다.
+
+시작한 후에는 [호스팅](/production/hosting/hosting.mdx), [서버 렌더링](/client/nextjs/app-router/server-rendering.mdx), [인증](https://docs.convex.dev/client/nextjs/)을 설정하는 방법을 확인하세요.
+
+</Admonition>
+
+Convex와 Next.js를 빠르게 설정하려면 다음을 실행하세요:
+
+<p>
+  <b>
+    <CodeWithCopyButton text="npm create convex@latest" />
+  </b>
+</p>
+
+또는 아래 가이드를 따르세요.
+
+---
+
+App Router를 사용하는 Next.js 앱에서 Convex 데이터를 쿼리하는 방법을 알아보세요<LanguageSelector verbose />
+
+또는 이 빠른 시작의 [Pages Router](/client/nextjs/pages-router/quickstart-nextjs-pages-router.mdx) 버전을 참조하세요.
+
+<StepByStep>
+  <Step title="Next.js 앱 생성하기">
+    `npx create-next-app` 명령을 사용하여 Next.js 앱을 생성하세요.
+
+    모든 프롬프트에 대해 기본 옵션을 선택하세요 (Enter 키를 누르세요).
+
+    <JSDialectVariants>
+      ```sh
+      npx create-next-app@latest my-app
+      ```
+
+      ```sh
+      npx create-next-app@latest my-app --js
+      ```
+    </JSDialectVariants>
+
+  </Step>
+  <Step title="Convex 클라이언트 및 서버 라이브러리 설치하기">
+    시작하려면 `convex` 패키지를 설치하세요.
+
+    앱으로 이동하여 `convex`를 설치하세요.
+
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+
+  </Step>
+  <Step title="Convex 개발 배포 설정하기">
+    다음으로, `npx convex dev`를 실행하세요. 이것은 GitHub로 로그인하고, 프로젝트를 생성하고, 프로덕션 및 배포 URL을 저장하라는 메시지를 표시합니다.
+
+    또한 백엔드 API 함수를 작성할 수 있는 `convex/` 폴더를 생성합니다. `dev` 명령은 계속 실행되면서 함수를 클라우드의 개발 배포와 동기화합니다.
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스용 샘플 데이터 생성하기">
+    새 터미널 창에서 샘플 데이터가 포함된 `sampleData.jsonl` 파일을 생성하세요.
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="데이터베이스에 샘플 데이터 추가하기">
+    [`import`](/database/import-export/import) 명령을 사용하여 샘플 데이터가 포함된 `tasks` 테이블을 Convex 데이터베이스에 추가하세요.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스 쿼리 노출하기">
+    `convex/` 폴더에 데이터를 로드하는 쿼리 함수가 포함된 새 파일 <JSDialectFileName name="tasks.ts" />를 추가하세요.
+
+    이 파일에서 쿼리 함수를 내보내면 파일과 내보내기 이름으로 명명된 API 함수 `api.tasks.get`이 선언됩니다.
+
+    <TSAndJSSnippet
+      sourceTS={tasks}
+      sourceJS={tasksJs}
+      title="convex/tasks.ts"
+    />
+
+  </Step>
+
+  <Step title="Convex 프로바이더를 위한 클라이언트 컴포넌트 생성하기">
+    `<ConvexProvider>`가 클라이언트에서 작동하려면 `ConvexReactClient`를 전달해야 합니다.
+
+    `app/` 폴더에 다음 코드가 포함된 새 파일 <JSDialectFileName name="ConvexClientProvider.tsx" />를 추가하세요. 이것은 `<ConvexProvider>`를 래핑하고 `<ConvexReactClient>`를 전달하는 클라이언트 컴포넌트를 생성합니다.
+
+    <TSAndJSSnippet
+      sourceTS={ConvexClientProvider}
+      sourceJS={ConvexClientProviderJs}
+      title="app/ConvexClientProvider.tsx"
+    />
+
+  </Step>
+
+  <Step title="ConvexClientProvider 연결하기">
+    <JSDialectFileName name="app/layout.tsx" ext="js" />에서 `body` 요소의 자식을 `<ConvexClientProvider>`로 래핑하세요.
+
+    <TSAndJSSnippet
+      sourceTS={layout}
+      sourceJS={layoutJs}
+      title="app/layout.tsx"
+      jsExtension="js"
+      highlightPatterns={[ "Convex", ]}
+    />
+
+  </Step>
+
+  <Step title="앱에 데이터 표시하기">
+    <JSDialectFileName name="app/page.tsx" ext="js" />에서 `useQuery()` 훅을 사용하여 `api.tasks.get` API 함수에서 가져오세요.
+
+    <TSAndJSSnippet
+      sourceTS={page}
+      sourceJS={pageJs}
+      title="app/page.tsx"
+      jsExtension="js"
+      highlightPatterns={[ "use client", "useQuery", "api", "tasks", "text", "\\)\\)\\}" ]}
+    />
+
+  </Step>
+
+  <Step title="앱 시작하기">
+    Next.js 개발 서버를 실행하고, 브라우저에서 [http://localhost:3000](http://localhost:3000)을 열어 작업 목록을 확인하세요.
+
+    ```sh
+    npm run dev
+    ```
+
+  </Step>
+
+</StepByStep>
+
+전체 [Next.js 문서](/client/nextjs/app-router/index.mdx)를 참조하세요.

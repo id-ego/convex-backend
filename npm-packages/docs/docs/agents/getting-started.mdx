@@ -1,0 +1,70 @@
+---
+title: "Getting Started with Agent"
+sidebar_label: "Getting Started"
+sidebar_position: 100
+description: "Setting up the agent component"
+---
+
+에이전트 컴포넌트를 설치하려면 기존 Convex 프로젝트가 필요합니다. Convex가 처음이신가요? [튜토리얼](https://docs.convex.dev/tutorial/)을 진행하세요.
+
+`npm create convex`를 실행하거나 [빠른 시작](https://docs.convex.dev/home) 중 하나를 따라 설정하세요.
+
+## 설치
+
+컴포넌트 패키지를 설치합니다:
+
+```ts
+npm install @convex-dev/agent
+```
+
+앱의 `convex/` 폴더에 `convex.config.ts` 파일을 만들고 `use`를 호출하여 컴포넌트를 설치합니다:
+
+```ts
+// convex/convex.config.ts
+import { defineApp } from "convex/server";
+import agent from "@convex-dev/agent/convex.config";
+
+const app = defineApp();
+app.use(agent);
+
+export default app;
+```
+
+그런 다음 `npx convex dev`를 실행하여 컴포넌트에 대한 코드를 생성합니다. 에이전트 정의를 시작하기 전에 이 작업이 성공적으로 한 번 실행되어야 합니다.
+
+## 첫 번째 에이전트 정의하기
+
+```ts
+import { components } from "./_generated/api";
+import { Agent } from "@convex-dev/agent";
+import { openai } from "@ai-sdk/openai";
+
+const agent = new Agent(components.agent, {
+  name: "My Agent",
+  languageModel: openai.chat("gpt-4o-mini"),
+  instructions: "당신은 날씨 예보관입니다.",
+  tools: { getWeather, getGeocoding },
+  maxSteps: 3,
+});
+```
+
+## 기본 사용법
+
+```ts
+import { action } from "./_generated/server";
+import { v } from "convex/values";
+
+export const helloWorld = action({
+  args: { city: v.string() },
+  handler: async (ctx, { city }) => {
+    const threadId = await createThread(ctx, components.agent);
+    const prompt = `${city}의 날씨는 어떻습니까?`;
+    const result = await agent.generateText(ctx, { threadId }, { prompt });
+    return result.text;
+  },
+});
+```
+
+`components.agent`에 대한 타입 오류가 발생하면 `npx convex dev`를 실행하여 컴포넌트에 대한 코드를 생성했는지 확인하세요.
+
+이게 전부입니다! 더 많은 세부 정보 및 옵션을 보려면 [에이전트 사용법](./agent-usage.mdx)을 확인하세요.

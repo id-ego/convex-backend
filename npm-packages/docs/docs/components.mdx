@@ -1,0 +1,198 @@
+---
+title: "컴포넌트"
+description: "앱의 자체 포함된 빌딩 블록"
+pagination_prev: search
+---
+
+import { ComponentCardList } from "@site/src/ComponentCardList.tsx";
+
+<span className="convex-hero">
+  Convex 컴포넌트는 코드와 데이터를 샌드박스에 패키징하여 백엔드에 새로운 기능을 자신 있고 빠르게 추가할 수 있도록 합니다.
+</span>
+
+Convex 컴포넌트는 미니 자체 포함 Convex 백엔드와 같으며, 설치는 항상 안전합니다. 명시적으로 전달하지 않는 한 앱의 테이블을 읽거나 앱의 함수를 호출할 수 없습니다.
+
+전체 비전은 [Convex: The Software-Defined Database](https://stack.convex.dev/the-software-defined-database#introducing-convex-components)에서 읽을 수 있습니다.
+
+Convex 팀은 백엔드에 새로운 기능을 추가하는 몇 가지 컴포넌트를 구축했습니다. 프로젝트 내에서 사용하고 커뮤니티와 공유할 수 있도록 자체 컴포넌트를 작성할 수 있게 될 예정이지만, 아직 작성 API를 안정화하고 문서화하지 않았습니다.
+
+각 컴포넌트는 NPM에서 독립적인 라이브러리로 설치됩니다. 설치 및 사용 지침은 컴포넌트의 README를 확인하세요. [Convex 웹사이트](https://convex.dev/components)에서 전체 디렉토리를 볼 수 있습니다.
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+    href: "https://convex.dev/components",
+    label: "전체 컴포넌트 디렉토리",
+  }}
+/>
+
+## Durable Functions
+
+<ComponentCardList
+  items={[
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/workflow",
+      label: "Workflow",
+      description: "Async code flow as durable functions.",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/workpool",
+      label: "Workpool",
+      description: "Async durable function queue.",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/crons",
+      label: "Crons",
+      description: "Dynamic runtime cron management",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/retrier",
+      label: "Action Retrier",
+      description: "Retry failed external calls automatically",
+    },
+  ]}
+/>
+
+## Database
+
+<ComponentCardList
+  items={[
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/sharded-counter",
+      label: "Sharded Counter",
+      description: "High-throughput counter operations",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/migrations",
+      label: "Migrations",
+      description: "Define and run migrations",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/aggregate",
+      label: "Aggregate",
+      description: "Efficient sums and counts",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/geospatial",
+      label: "Geospatial (Beta)",
+      description: "Store and search locations",
+    },
+  ]}
+/>
+
+## Integrations
+
+<ComponentCardList
+  items={[
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/cloudflare-r2",
+      label: "Cloudflare R2",
+      description: "Store and serve files",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/prosemirror-sync",
+      label: "Collaborative Text Editor Sync",
+      description: "Real-time collaborative text editing",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/push-notifications",
+      label: "Expo Push Notifications",
+      description: "Send mobile push notifications",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/twilio",
+      label: "Twilio SMS",
+      description: "Send and receive SMS messages",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/launchdarkly",
+      label: "LaunchDarkly Feature Flags",
+      description: "Sync feature flags with backend",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/polar",
+      label: "Polar",
+      description: "Add subscriptions and billing",
+    },
+  ]}
+/>
+
+## Backend
+
+<ComponentCardList
+  items={[
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/agent",
+      label: "AI Agent",
+      description: "Define agents with tools and memory",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/persistent-text-streaming",
+      label: "Persistent Text Streaming",
+      description: "Stream and store text data",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/rate-limiter",
+      label: "Rate Limiter",
+      description: "Control resource usage rates",
+    },
+    {
+      type: "link",
+      href: "https://www.convex.dev/components/action-cache",
+      label: "Action Cache",
+      description: "Cache expensive external calls",
+    },
+  ]}
+/>
+
+<Admonition type="caution" title="컴포넌트 작성 API는 베타 단계입니다">
+  컴포넌트의 기본 작성 API는 여전히 변경 중입니다. 아래에 나열된 Convex 팀이 작성한 컴포넌트는 API 변경에 따라 최신 상태로 유지됩니다.
+</Admonition>
+
+## 컴포넌트 이해하기
+
+컴포넌트는 프론트엔드 컴포넌트, 타사 API, 모놀리스 및 서비스 지향 아키텍처의 개념을 결합한 것으로 생각할 수 있습니다.
+
+### 데이터
+
+프론트엔드 컴포넌트와 유사하게 Convex 컴포넌트는 상태와 동작을 캡슐화하고 깨끗한 인터페이스를 노출할 수 있습니다. 그러나 메모리에 상태를 저장하는 대신, 사용자 세션 간에 지속되고, 사용자에 걸쳐 있으며, 웹훅과 같은 외부 입력에 대응하여 변경될 수 있는 내부 상태 머신을 가질 수 있습니다. 컴포넌트는 몇 가지 방법으로 데이터를 저장할 수 있습니다:
+
+- 자체 스키마 검증 정의가 있는 데이터베이스 테이블. Convex는 기본적으로 실시간이므로 데이터 읽기는 자동으로 반응형이며, 쓰기는 트랜잭션으로 커밋됩니다.
+- 메인 앱의 파일 스토리지와 독립적인 파일 스토리지.
+- 내장된 함수 스케줄러를 통한 Durable 함수. 컴포넌트는 미래에 실행할 함수를 안정적으로 예약하고 상태를 전달할 수 있습니다.
+
+일반적으로 라이브러리는 상태를 저장하는 기성 기능을 추가하기 위해 타사 서비스를 구성해야 하며, 이는 동일한 데이터베이스에 상태를 저장함으로써 얻을 수 있는 트랜잭션 보장이 부족합니다.
+
+### 격리
+
+일반 npm 라이브러리와 유사하게 Convex 컴포넌트는 함수, 타입 안전성을 포함하며 코드에서 호출됩니다. 그러나 추가 보장도 제공합니다.
+
+- 타사 API와 유사하게 컴포넌트는 액세스를 제공하지 않은 데이터를 읽을 수 없습니다. 여기에는 데이터베이스 테이블, 파일 스토리지, 환경 변수, 예약된 함수 등이 포함됩니다.
+- 서비스 지향 아키텍처와 유사하게 컴포넌트의 함수는 격리된 환경에서 실행되므로 전역 변수를 읽거나 쓰거나 시스템 동작을 패치할 수 없습니다.
+- 모놀리스 아키텍처와 유사하게 데이터 변경은 복잡한 분산 커밋 프로토콜이나 데이터 불일치에 대해 고려할 필요 없이 컴포넌트 호출 간에 트랜잭션으로 커밋됩니다. 컴포넌트가 데이터를 커밋했지만 호출 코드가 롤백되는 일은 없습니다.
+- 또한 컴포넌트에 대한 각 뮤테이션 호출은 다른 호출과 격리된 서브 뮤테이션이므로 컴포넌트가 발생시킨 오류를 안전하게 포착할 수 있습니다. 또한 컴포넌트 작성자가 경쟁 없이 상태 변경에 대해 쉽게 추론할 수 있도록 하며, 예외가 발생하면 항상 컴포넌트의 서브 뮤테이션이 롤백된다는 것을 신뢰할 수 있습니다. [자세히 읽기](/components/using.mdx#transactions).
+
+### 캡슐화
+
+코드에 대해 추론할 수 있는 능력은 코드베이스를 확장하는 데 필수적입니다. 컴포넌트를 사용하면 API 경계와 추상화에 대해 추론할 수 있습니다.
+
+- 위에서 논의한 트랜잭션 보장은 컴포넌트의 작성자와 사용자가 데이터 변경에 대해 로컬로 추론할 수 있도록 합니다.
+- 컴포넌트는 직접 데이터베이스 테이블 액세스가 아닌 명시적 API를 노출합니다. 데이터 불변성은 추상화 경계 내의 코드에서 강제할 수 있습니다. 예를 들어, [aggregate 컴포넌트](https://convex.dev/components/aggregate)는 내부적으로 데이터를 비정규화할 수 있고, [rate limiter](https://convex.dev/components/rate-limiter) 컴포넌트는 데이터를 샤딩할 수 있으며, [push notification](https://convex.dev/components/push-notifications) 컴포넌트는 내부적으로 API 요청을 일괄 처리하면서 간단한 인터페이스를 유지할 수 있습니다.
+- 런타임 검증은 컴포넌트 경계를 넘는 모든 데이터(인수와 반환 값 모두)가 검증되도록 보장합니다. 일반 Convex 함수와 마찬가지로 검증자는 TypeScript 타입도 지정하여 런타임 보장과 함께 엔드 투 엔드 타이핑을 제공합니다.

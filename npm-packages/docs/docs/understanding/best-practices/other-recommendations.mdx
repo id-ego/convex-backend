@@ -1,0 +1,102 @@
+---
+title: "Other Recommendations"
+sidebar_position: 170
+sidebar_class_name: "hidden"
+pagination_next: null
+description:
+  "Additional Convex development recommendations including TypeScript usage,
+  helper functions, database patterns, and UI optimization techniques."
+---
+
+import UserHelpers from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpers.ts";
+import UserHelpersJS from "!!raw-loader!@site/../private-demos/snippets/convex/userHelpersJS.js";
+import Teams from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeams.ts";
+import TeamsJS from "!!raw-loader!@site/../private-demos/snippets/convex/bestPracticesHelpersTeamsJS.js";
+
+{/* This page was previously the Best Practices page which has been rewritten */}
+{/* with some of this content dropped. We are keeping this as a hidden page that is */}
+{/* still scrape-able */}
+
+Convex를 사용하여 애플리케이션을 구축하는 최선의 방법에 대한 권장 사항 모음입니다. 앱의 요구 사항에 맞는 구체적인 지침이 필요하거나 Convex를 사용하는 다른 방법을 발견한 경우,
+[Discord에서 메시지를 보내주세요](https://convex.dev/community)!
+
+## [TypeScript](/understanding/best-practices/typescript.mdx) 사용하기
+
+모든 Convex 라이브러리에는 완전한 타입 어노테이션이 있으며, 이러한 타입을 사용하는 것은 프레임워크를 배우는 좋은 방법입니다.
+
+더 좋은 것은 Convex가 앱의 [스키마](/database/schemas.mdx) 및
+[Convex 함수](/functions.mdx)에 맞는 타입을 생성하기 위해 [코드 생성](/generated-api/)을 지원한다는 것입니다.
+
+코드 생성은 [`npx convex dev`](/cli.md#run-the-convex-dev-server)에 의해 자동으로 실행됩니다.
+
+## 생성된 코드를 버전 관리에 체크인하기
+
+convex 폴더 내부에는 convex 함수에 맞게 사용자 정의된 코드가 포함된 `_generated/` 디렉토리가 있습니다. 이 폴더를 git 저장소에 체크인하세요. 이렇게 하면 먼저 `npx convex codegen` 또는 `npx convex dev`(codegen 포함)를 실행하지 않고도 코드가 타입 검사됩니다.
+
+또한 개발자가 환경 변수를 설정하여 Convex CLI 도구를 실행할 필요 없이 프로덕션 배포에 대해 실행하여 convex를 사용하는 프로젝트를 변경할 수 있습니다. 프로덕션 배포에 대해 실행하려면 대시보드의 프로젝트 프로덕션 배포 설정에 있는 `https://happy-otter-123.convex.cloud`와 같은 프로덕션 배포 URL로 VITE_CONVEX_URL과 같은 환경 변수를 설정하세요(정확한 변수 이름은 사용하는 프레임워크에 따라 다름). 대부분의 프레임워크는 `.env` 또는 `.env.production`이라는 파일에서 이러한 변수를 검색합니다.
+
+## 함수
+
+### 모든 공개 함수에서 [인수 검증](/functions/validation.mdx) 사용하기.
+
+인수 검증은 악의적인 사용자가 잘못된 유형의 인수로 함수를 호출하는 것을 방지합니다. 공개적으로 접근할 수 없기 때문에 [내부 함수](/functions/internal-functions.mdx)에 대한 인수 검증을 건너뛰는 것은 괜찮습니다.
+
+### Convex 함수를 디버깅하기 위해 `console.log` 사용하기.
+
+Convex 함수의 모든 서버 측 로그는 [대시보드 로그 페이지](/dashboard/deployments/logs.md)에 표시됩니다. 서버 측 예외가 발생하면 오류 이벤트로도 로그됩니다.
+
+**개발 배포**에서 로그는 클라이언트로 전달되어 함수 호출을 시작한 사용자의 브라우저 개발자 도구 콘솔에 표시되며, 전체 서버 오류 메시지 및 서버 측 스택 트레이스가 포함됩니다.
+
+### 공유 코드를 작성하기 위해 도우미 함수 사용하기.
+
+`convex/` 디렉토리에 도우미 함수를 작성하고 Convex 함수 내에서 사용하세요. 도우미는 비즈니스 로직, 권한 부여 코드 등을 공유하는 강력한 방법이 될 수 있습니다.
+
+도우미 함수를 사용하면 전체 쿼리 또는 뮤테이션을 단일 트랜잭션에서 실행하면서 코드를 공유할 수 있습니다. 액션의 경우, `ctx.runAction`을 사용하는 대신 도우미 함수를 통해 코드를 공유하면 함수 호출 및 리소스 사용이 줄어듭니다.
+
+유용한 타입은 [TypeScript 페이지](/understanding/best-practices/typescript.mdx)를 참조하세요.
+
+<TSAndJSSnippet sourceTS={Teams} sourceJS={TeamsJS} title="convex/teams.js" />
+
+<TSAndJSSnippet
+  sourceTS={UserHelpers}
+  sourceJS={UserHelpersJS}
+  title="convex/userHelpers.js"
+  snippet="userHelpers"
+  suffix={`}`}
+/>
+
+### 액션보다 쿼리 및 뮤테이션 선호하기
+
+일반적으로 쿼리 또는 뮤테이션을 사용하여 동일한 목표를 달성할 수 있는 경우 액션 사용을 피해야 합니다. 액션은 부작용을 가질 수 있기 때문에 자동으로 재시도하거나 결과를 캐시할 수 없습니다. 액션은 타사 서비스 호출과 같은 더 제한된 시나리오에서 사용해야 합니다.
+
+## 데이터베이스
+
+### 모든 대규모 데이터베이스 쿼리에 인덱스 사용 또는 페이지네이션하기.
+
+[범위 표현식](/database/reading-data/indexes/indexes.md#querying-documents-using-indexes)이 있는 [데이터베이스 인덱스](/database/reading-data/indexes/indexes.md)를 사용하면 테이블에서 적은 수의 문서만 스캔하는 효율적인 데이터베이스 쿼리를 작성할 수 있습니다. [페이지네이션](/database/pagination.mdx)을 사용하면 증분 결과 목록을 빠르게 표시할 수 있습니다. 테이블에 수천 개 이상의 문서가 포함될 수 있는 경우, 쿼리를 빠르게 유지하기 위해 페이지네이션 또는 범위 표현식이 있는 인덱스를 고려해야 합니다.
+
+자세한 내용은 [인덱스 및 쿼리 성능 소개](/database/reading-data/indexes/indexes-and-query-perf.md) 문서를 확인하세요.
+
+### 논리적 객체 유형을 분리하기 위해 테이블 사용하기.
+
+Convex가 중첩 문서를 지원하지만, 별도의 객체를 별도의 테이블에 넣고 `Id`를 사용하여 그들 사이에 참조를 만드는 것이 종종 더 좋습니다. 이렇게 하면 [문서 쿼리](/database/reading-data/reading-data.mdx) 시 더 많은 유연성을 얻을 수 있습니다.
+
+자세한 내용은 [문서 ID](/database/document-ids.mdx)를 참조하세요.
+
+## UI 패턴
+
+### 쿼리가 로딩 중인지 확인하기 위해 `undefined` 확인하기.
+
+[`useQuery` React 훅](/api/modules/react#usequery)은 Convex에서 쿼리가 로드되기 전에 처음 마운트될 때 `undefined`를 반환합니다. 쿼리가 로드되면 다시는 `undefined`가 되지 않습니다(데이터가 반응적으로 업데이트되는 경우에도). `undefined`는 쿼리에 대한 유효한 반환 타입이 아닙니다([데이터 타입](/database/types.md)에서 Convex가 지원하는 타입을 확인할 수 있음).
+
+이를 로딩 인디케이터 및 플레이스홀더 UI를 렌더링할 시기에 대한 신호로 사용할 수 있습니다.
+
+### 빠르게 느껴지기를 원하는 상호 작용에 낙관적 업데이트 추가하기.
+
+기본적으로 모든 관련 `useQuery` 훅은 뮤테이션이 Convex에서 동기화된 후 자동으로 업데이트됩니다. 일부 상호 작용이 더 빠르게 발생하기를 원하는 경우, UI가 즉시 업데이트되도록 `useMutation` 호출에 [낙관적 업데이트](/client/react/optimistic-updates.mdx)를 추가할 수 있습니다.
+
+### 오류를 관리하기 위해 예외 처리 서비스 및 오류 경계 사용하기.
+
+불가피하게 Convex 함수에는 버그가 있고 예외가 발생할 것입니다. 예외 처리 서비스와 오류 경계가 구성되어 있으면 이러한 오류에 대해 듣고 사용자가 적절한 UI를 볼 수 있도록 보장할 수 있습니다.
+
+자세한 내용은 [오류 처리](/functions/error-handling/error-handling.mdx)를 참조하세요.

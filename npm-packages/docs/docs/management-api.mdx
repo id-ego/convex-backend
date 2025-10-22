@@ -1,0 +1,56 @@
+---
+title: Management API
+hide_table_of_contents: true
+description: "API를 통한 Convex 배포 생성 및 관리"
+---
+
+<Admonition type="info">
+  Convex Management API는 베타 버전으로 공개 제공됩니다. 추가 기능이 필요한 경우
+  platforms@convex.dev로 문의해 주세요.
+</Admonition>
+
+Management API를 사용하여 Convex 프로젝트와 배포를 프로비저닝하고 관리할 수 있습니다.
+
+## 인증
+
+Management API는 Bearer 토큰 Authorization 헤더를 사용합니다.
+
+```ts
+const token = "ey...0=";
+const response = await fetch(
+  "https://api.convex.dev/v1/teams/41/list_projects",
+  {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  },
+);
+console.log(await response.json());
+```
+
+[팀 액세스 토큰](/platform-apis#managing-your-own-projects)과
+[OAuth 애플리케이션 토큰](/platform-apis/oauth-applications)은
+자신의 팀을 대신하여 Management API를 사용하는지, 또는 구축한 Convex 통합의 사용자 팀을 대신하여 사용하는지에 따라
+Bearer 토큰에 사용할 수 있습니다.
+
+## 필수 매개변수
+
+대부분의 Management API는 팀 ID 또는 프로젝트 ID가 필요합니다.
+
+팀 액세스 토큰을 생성할 때 팀 ID는 Convex 대시보드에서 확인할 수 있습니다.
+
+OAuth 애플리케이션은 [Token Details](/management-api/get-token-details)
+엔드포인트를 호출하여 팀(또는 프로젝트 범위 토큰을 사용하는 경우 프로젝트) ID를 요청할 수 있습니다.
+
+팀 토큰을 사용하는 경우, 프로젝트는 생성 시 ID가 할당됩니다.
+[List Projects](/management-api/list-projects) 엔드포인트를 사용하여
+프로젝트의 ID를 검색할 수도 있습니다.
+
+## 응답
+
+모든 API 응답은 JSON 형식입니다.
+
+## 엔드포인트
+
+Management API의 OpenAPI 사양은
+[https://api.convex.dev/v1/openapi.json](https://api.convex.dev/v1/openapi.json)에서 확인할 수 있습니다.

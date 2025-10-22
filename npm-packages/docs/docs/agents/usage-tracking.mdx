@@ -1,0 +1,136 @@
+---
+title: 사용량 추적
+sidebar_label: "사용량 추적"
+sidebar_position: 1300
+description: "에이전트 컴포넌트의 토큰 사용량 추적하기"
+---
+
+에이전트에 `usageHandler`를 제공하여 토큰 사용량을 추적할 수 있습니다. 사용량을 테이블에 캡처한 다음 스캔하여 사용자별 청구서를 생성하는 [이 데모](https://github.com/get-convex/agent/blob/main/example/convex/usage_tracking/usageHandler.ts)의 예제를 참조하세요.
+
+에이전트, 스레드별 또는 메시지별로 `usageHandler`를 제공할 수 있습니다.
+
+```ts
+const supportAgent = new Agent(components.agent, {
+  ...
+  usageHandler: async (ctx, args) => {
+    const {
+      // Who used the tokens
+      userId, threadId, agentName,
+      // What LLM was used
+      model, provider,
+      // How many tokens were used (extra info is available in providerMetadata)
+      usage, providerMetadata
+    } = args;
+    // ... log, save usage to your database, etc.
+  },
+});
+```
+
+팁: 다른 사용자, 팀, 프로젝트 등에 사용량을 귀속시키기 위해 더 많은 변수를 사용할 수 있는 함수 내에서 `usageHandler`를 정의합니다.
+
+## 테이블에 사용량 저장하기
+
+예를 들어 청구를 위해 사용량을 추적하려면 스키마에 테이블을 정의하고 나중에 처리하기 위해 사용량을 삽입할 수 있습니다.
+
+```ts
+export const usageHandler: UsageHandler = async (ctx, args) => {
+  if (!args.userId) {
+    console.debug("Not tracking usage for anonymous user");
+    return;
+  }
+  await ctx.runMutation(internal.example.insertRawUsage, {
+    userId: args.userId,
+    agentName: args.agentName,
+    model: args.model,
+    provider: args.provider,
+    usage: args.usage,
+    providerMetadata: args.providerMetadata,
+  });
+};
+
+export const insertRawUsage = internalMutation({
+  args: {
+    userId: v.string(),
+    agentName: v.optional(v.string()),
+    model: v.string(),
+    provider: v.string(),
+    usage: vUsage,
+    providerMetadata: v.optional(vProviderMetadata),
+  },
+  handler: async (ctx, args) => {
+    const billingPeriod = getBillingPeriod(Date.now());
+    return await ctx.db.insert("rawUsage", {
+      ...args,
+      billingPeriod,
+    });
+  },
+});
+
+function getBillingPeriod(at: number) {
+  const now = new Date(at);
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth());
+  return startOfMonth.toISOString().split("T")[0];
+}
+```
+
+`convex/schema.ts`의 관련 스키마:
+
+```ts
+export const schema = defineSchema({
+  rawUsage: defineTable({
+    userId: v.string(),
+    agentName: v.optional(v.string()),
+    model: v.string(),
+    provider: v.string(),
+
+    // stats
+    usage: vUsage,
+    providerMetadata: v.optional(vProviderMetadata),
+
+    // In this case, we're setting it to the first day of the current month,
+    // using UTC time for the month boundaries.
+    // You could alternatively store it as a timestamp number.
+    // You can then fetch all the usage at the end of the billing period
+    // and calculate the total cost.
+    billingPeriod: v.string(), // When the usage period ended
+  }).index("billingPeriod_userId", ["billingPeriod", "userId"]),
+
+  invoices: defineTable({
+    userId: v.string(),
+    billingPeriod: v.string(),
+    amount: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("paid"),
+      v.literal("failed"),
+    ),
+  }).index("billingPeriod_userId", ["billingPeriod", "userId"]),
+  // ... other tables
+});
+```
+
+## cron job을 통해 청구서 생성하기
+
+cron job을 사용하여 청구 기간 말에 청구서를 생성할 수 있습니다.
+
+청구서를 생성하는 방법의 예는 [usage_tracking/invoicing.ts](https://github.com/get-convex/agent/blob/main/example/convex/usage_tracking/invoicing.ts)를 참조하세요.
+
+그런 다음 `convex/crons.ts`에 추가할 수 있습니다:
+
+```ts
+import { cronJobs } from "convex/server";
+import { internal } from "./_generated/api";
+
+const crons = cronJobs();
+
+// Generate invoices for the previous month
+crons.monthly(
+  "generateInvoices",
+  // Wait a day after the new month starts to generate invoices
+  { day: 2, hourUTC: 0, minuteUTC: 0 },
+  internal.usage.generateInvoices,
+  {},
+);
+
+export default crons;
+```

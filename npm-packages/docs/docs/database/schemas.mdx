@@ -1,0 +1,310 @@
+---
+title: "스키마"
+sidebar_position: 5
+description:
+  "스키마 검증은 Convex 데이터를 깔끔하고 정리된 상태로 유지합니다. 또한
+  엔드투엔드 TypeScript 타입 안전성을 제공합니다!"
+toc_max_heading_level: 4
+---
+
+import SchemaTS from "!!raw-loader!@site/../demos/users-and-auth/convex/schema.ts";
+import circularExample from "!!raw-loader!@site/../private-demos/snippets/convex/schemasCircular.ts";
+
+스키마는 다음에 대한 설명입니다
+
+1. Convex 프로젝트의 테이블
+2. 테이블 내 문서의 타입
+
+스키마를 정의하지 _않고_ Convex를 사용할 수 있지만, `schema.ts` 파일을 추가하면 테이블의 문서가 올바른 타입인지 확인할 수 있습니다. [TypeScript](/understanding/best-practices/typescript.mdx)를 사용하는 경우 스키마를 추가하면 앱 전체에서 엔드투엔드 타입 안전성도 제공됩니다.
+
+빠른 프로토타이핑을 위해 스키마 없이 프로젝트를 시작한 다음 계획이 확정되면 스키마를 추가하는 것을 권장합니다. 자세한 내용은 [스키마 철학](/database/advanced/schema-philosophy.md)을 참조하세요.
+
+**예제:**
+[TypeScript와 스키마](https://github.com/get-convex/convex-demos/tree/main/typescript)
+
+## 스키마 작성하기
+
+스키마는 `convex/` 디렉토리의 `schema.ts` 파일에 정의되며 다음과 같습니다:
+
+<Snippet source={SchemaTS} title="convex/schema.ts" />
+
+이 스키마([사용자 및 인증 예제](https://github.com/get-convex/convex-demos/tree/main/users-and-auth)를 기반으로 함)는 messages와 users라는 2개의 테이블이 있습니다. 각 테이블은 [`defineTable`](/api/modules/server#definetable) 함수를 사용하여 정의됩니다. 각 테이블 내에서 문서 타입은 유효성 검사기 빌더인 [`v`](/api/modules/values#v)를 사용하여 정의됩니다. 나열된 필드 외에도 Convex는 자동으로 `_id`와 `_creationTime` 필드를 추가합니다. 자세한 내용은 [시스템 필드](/database/types.md#system-fields)를 참조하세요.
+
+<Admonition type="tip" title="스키마 생성하기">
+
+스키마를 작성하는 동안 [Convex 대시보드](/dashboard/deployments/data.md#generating-a-schema)를 참조하는 것이 도움이 될 수 있습니다. "데이터" 뷰의 "스키마 생성" 버튼은 테이블의 데이터를 기반으로 스키마 선언을 제안합니다.
+
+</Admonition>
+
+### 유효성 검사기
+
+유효성 검사기 빌더인 [`v`](/api/modules/values#v)는 각 테이블의 문서 타입을 정의하는 데 사용됩니다. [Convex의 타입](/database/types)마다 메서드가 있습니다:
+
+```ts noDialect title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  documents: defineTable({
+    id: v.id("documents"),
+    string: v.string(),
+    number: v.number(),
+    boolean: v.boolean(),
+    nestedObject: v.object({
+      property: v.string(),
+    }),
+  }),
+});
+```
+
+또한 유니온, 선택적 속성, 문자열 리터럴 등을 정의할 수 있습니다. [인수 검증](/functions/validation.mdx)과 스키마는 모두 동일한 유효성 검사기 빌더 `v`를 사용합니다.
+
+#### 선택적 필드
+
+`v.optional(...)`로 타입을 래핑하여 선택적 필드를 설명할 수 있습니다:
+
+```typescript
+defineTable({
+  optionalString: v.optional(v.string()),
+  optionalNumber: v.optional(v.number()),
+});
+```
+
+이것은 TypeScript에서 `?`로 필드를 선택적으로 표시하는 것에 해당합니다.
+
+#### 유니온
+
+`v.union`을 사용하여 여러 타입 중 하나일 수 있는 필드를 설명할 수 있습니다:
+
+```typescript
+defineTable({
+  stringOrNumber: v.union(v.string(), v.number()),
+});
+```
+
+테이블이 여러 다른 타입의 문서를 저장하는 경우 최상위 수준에서 `v.union`을 사용할 수 있습니다:
+
+```typescript
+defineTable(
+  v.union(
+    v.object({
+      kind: v.literal("StringDocument"),
+      value: v.string(),
+    }),
+    v.object({
+      kind: v.literal("NumberDocument"),
+      value: v.number(),
+    }),
+  ),
+);
+```
+
+이 스키마에서 문서는 `kind`가 `"StringDocument"`이고 `value`가 문자열이거나:
+
+```json
+{
+  "kind": "StringDocument",
+  "value": "abc"
+}
+```
+
+`kind`가 `"NumberDocument"`이고 `value`가 숫자입니다:
+
+```json
+{
+  "kind": "NumberDocument",
+  "value": 123
+}
+```
+
+#### 리터럴
+
+상수인 필드는 `v.literal`로 표현할 수 있습니다:
+
+```typescript
+defineTable({
+  oneTwoOrThree: v.union(
+    v.literal("one"),
+    v.literal("two"),
+    v.literal("three"),
+  ),
+});
+```
+
+#### 레코드 객체
+
+`v.record`를 사용하여 임의의 키를 값에 매핑하는 객체를 설명할 수 있습니다:
+
+```typescript
+defineTable({
+  simpleMapping: v.record(v.string(), v.boolean()),
+});
+```
+
+키에 다른 타입의 문자열 유효성 검사기를 사용할 수 있습니다:
+
+```typescript
+import { mutation } from "./_generated/server";
+import { v } from "convex/values";
+
+export default mutation({
+  args: {
+    userIdToValue: v.record(v.id("users"), v.boolean()),
+  },
+  handler: async ({ db }, { userIdToValue }) => {
+    //...
+  },
+});
+```
+
+참고:
+
+- 이 타입은 TypeScript의 [Record\<K,V\>](https://www.typescriptlang.org/docs/handbook/utility-types.html#recordkeys-type) 타입에 해당합니다
+- 문자열 리터럴을 `record` 키로 사용할 수 없습니다
+- `v.string()`을 `record` 키 유효성 검사기로 사용하면 ASCII 문자만 허용됩니다
+
+#### Any
+
+모든 값을 가질 수 있는 필드나 문서는 `v.any()`로 나타낼 수 있습니다:
+
+```typescript
+defineTable({
+  anyValue: v.any(),
+});
+```
+
+이것은 TypeScript의 `any` 타입에 해당합니다.
+
+### 옵션
+
+이러한 옵션은 [`defineSchema`](/api/modules/server#defineschema)에 대한 [옵션](/api/interfaces/server.DefineSchemaOptions) 인수의 일부로 전달됩니다.
+
+#### `schemaValidation: boolean`
+
+Convex가 런타임에 문서가 스키마와 일치하는지 검증해야 하는지 여부입니다.
+
+기본적으로 Convex는 모든 새 문서와 기존 문서가 스키마와 일치하는지 강제합니다.
+
+`schemaValidation: false`를 전달하여 `schemaValidation`을 비활성화할 수 있습니다:
+
+```typescript
+defineSchema(
+  {
+    // 여기에 테이블을 정의합니다.
+  },
+  {
+    schemaValidation: false,
+  },
+);
+```
+
+`schemaValidation`이 비활성화되면 Convex는 새 문서나 기존 문서가 스키마와 일치하는지 검증하지 않습니다. 여전히 스키마 관련 TypeScript 타입을 얻을 수 있지만 런타임에 문서가 해당 타입과 일치하는지 검증하지 않습니다.
+
+#### `strictTableNameTypes: boolean`
+
+TypeScript 타입이 스키마에 없는 테이블에 대한 액세스를 허용해야 하는지 여부입니다.
+
+기본적으로 스키마에서 생성된 TypeScript 테이블 이름 타입은 엄격합니다. 즉, 문자열의 유니온(예: `"messages" | "users"`)이 되며 스키마에 명시적으로 나열된 테이블에만 액세스할 수 있습니다.
+
+때로는 스키마의 일부만 정의하는 것이 유용합니다. 예를 들어, 빠르게 프로토타이핑하는 경우 `schema.ts` 파일에 추가하기 전에 새 테이블을 시도해 보는 것이 유용할 수 있습니다.
+
+`strictTableNameTypes: false`를 전달하여 `strictTableNameTypes`를 비활성화할 수 있습니다:
+
+```typescript
+defineSchema(
+  {
+    // 여기에 테이블을 정의합니다.
+  },
+  {
+    strictTableNameTypes: false,
+  },
+);
+```
+
+`strictTableNameTypes`가 비활성화되면 TypeScript 타입은 스키마에 나열되지 않은 테이블에 대한 액세스를 허용하며 해당 문서 타입은 `any`가 됩니다.
+
+`strictTableNameTypes`의 값에 관계없이 스키마는 스키마에 나열된 테이블의 문서만 검증합니다. JavaScript나 대시보드에서 다른 테이블의 문서를 생성하고 수정할 수 있습니다(검증되지 않을 뿐입니다).
+
+## 스키마 검증
+
+스키마는 [`npx convex dev`](/cli.md#run-the-convex-dev-server)와 [`npx convex deploy`](/cli.md#deploy-convex-functions-to-production)에서 자동으로 푸시됩니다.
+
+스키마가 추가되거나 수정된 후 첫 번째 푸시는 모든 기존 문서가 스키마와 일치하는지 검증합니다. 검증에 실패하는 문서가 있으면 푸시가 실패합니다.
+
+스키마가 푸시된 후 Convex는 향후 모든 문서 삽입 및 업데이트가 스키마와 일치하는지 검증합니다.
+
+[`schemaValidation`](#schemavalidation-boolean)이 `false`로 설정된 경우 스키마 검증을 건너뜁니다.
+
+스키마는 스키마에 나열된 테이블의 문서만 검증합니다. 다른 테이블의 문서를 생성하고 수정할 수 있습니다(검증되지 않을 뿐입니다).
+
+### 순환 참조
+
+다음과 같이 순환 ID 참조가 있는 스키마를 정의하고 싶을 수 있습니다:
+
+```typescript title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  users: defineTable({
+    preferencesId: v.id("preferences"),
+  }),
+  preferences: defineTable({
+    userId: v.id("users"),
+  }),
+});
+```
+
+이 스키마에서 `users` 테이블의 문서는 `preferences`의 문서에 대한 참조를 포함하고 그 반대도 마찬가지입니다.
+
+스키마 검증이 모든 `db.insert`, `db.replace` 및 `db.patch` 호출에서 스키마를 강제하기 때문에 이와 같은 순환 참조를 생성하는 것은 불가능합니다.
+
+가장 쉬운 해결 방법은 참조 중 하나를 nullable로 만드는 것입니다:
+
+```typescript title="convex/schema.ts"
+import { defineSchema, defineTable } from "convex/server";
+import { v } from "convex/values";
+
+export default defineSchema({
+  users: defineTable({
+    preferencesId: v.id("preferences"),
+  }),
+  preferences: defineTable({
+    userId: v.union(v.id("users"), v.null()),
+  }),
+});
+```
+
+이렇게 하면 먼저 preferences 문서를 생성한 다음 user 문서를 생성한 다음 preferences 문서의 참조를 설정할 수 있습니다:
+
+<TSAndJSSnippet
+  title="convex/users.ts"
+  sourceTS={circularExample}
+  sourceJS={circularExample}
+/>
+
+순환 참조에 대한 더 나은 지원이 필요한 경우 [알려주세요](/production/contact.md).
+
+## TypeScript 타입
+
+스키마를 정의하면 [`npx convex dev`](/cli.md#run-the-convex-dev-server)가 스키마를 기반으로 한 타입으로 새 버전의 [`dataModel.d.ts`](/generated-api/data-model)와 [`server.d.ts`](/generated-api/server)를 생성합니다.
+
+### `Doc<TableName>`
+
+[`dataModel.d.ts`](/generated-api/data-model)의 [`Doc`](/generated-api/data-model#doc) TypeScript 타입은 모든 테이블에 대한 문서 타입을 제공합니다. Convex 함수를 작성할 때와 React 컴포넌트에서 모두 사용할 수 있습니다:
+
+```tsx noDialect title="MessageView.tsx"
+import { Doc } from "../convex/_generated/dataModel";
+
+function MessageView(props: { message: Doc<"messages"> }) {
+  ...
+}
+```
+
+문서의 일부에 대한 타입이 필요한 경우 [`Infer` 타입 헬퍼](/functions/validation#extracting-typescript-types)를 사용하세요.
+
+### `query`와 `mutation`
+
+[`server.js`](/generated-api/server)의 [`query`](/generated-api/server#query)와 [`mutation`](/generated-api/server#mutation) 함수는 이전과 동일한 API를 가지지만 이제 더 정확한 타입의 `db`를 제공합니다. [`db.insert(table, document)`](/api/interfaces/server.GenericDatabaseWriter#insert)와 같은 함수는 이제 스키마를 이해합니다. 또한 [데이터베이스 쿼리](/database/reading-data/reading-data.mdx)는 이제 올바른 문서 타입을 반환합니다(`any`가 아님).
+
+<StackPosts query="schemas" />

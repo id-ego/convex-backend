@@ -1,0 +1,68 @@
+---
+title: "파일 제공하기"
+sidebar_label: "제공"
+sidebar_position: 3
+description: "Convex에 저장된 파일을 사용자에게 제공하기"
+---
+
+import Messages from "!!raw-loader!@site/../demos/file-storage/convex/messages.ts";
+import AppTS from "!!raw-loader!@site/../demos/file-storage/src/App.tsx";
+import AppJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageApp.jsx";
+import Http from "!!raw-loader!@site/../demos/file-storage-with-http/convex/http.ts";
+import HttpAppTS from "!!raw-loader!@site/../demos/file-storage-with-http/src/App.tsx";
+import HttpAppJS from "!!raw-loader!@site/../private-demos/snippets/src/fileStorageWithHttpImage.jsx";
+
+Convex에 저장된 파일은 특정 파일을 가리키는 URL을 생성하여 사용자에게 제공할 수 있습니다.
+
+## 쿼리에서 파일 URL 생성하기
+
+파일을 제공하는 가장 간단한 방법은 [쿼리](/functions/query-functions.mdx)와 [뮤테이션](/functions/mutation-functions.mdx)에서 앱에 필요한 다른 데이터와 함께 URL을 반환하는 것입니다.
+
+파일 URL은 [`QueryCtx`](/api/interfaces/server.GenericQueryCtx), [`MutationCtx`](/api/interfaces/server.GenericMutationCtx), 또는 [`ActionCtx`](/api/interfaces/server.GenericActionCtx) 객체의 [`storage.getUrl`](/api/interfaces/server.StorageReader#geturl) 함수를 통해 스토리지 ID로부터 생성할 수 있습니다:
+
+<TSAndJSSnippet
+  title="convex/listMessages.ts"
+  sourceTS={Messages}
+  sourceJS={Messages}
+  snippet="query"
+  highlightPatterns={["storage.getUrl"]}
+/>
+
+파일 URL은 `img` 요소에서 이미지를 렌더링하는 데 사용할 수 있습니다:
+
+<TSAndJSSnippet
+  title="src/App.tsx"
+  sourceTS={AppTS}
+  sourceJS={AppJS}
+  snippet="imageComponent"
+/>
+
+쿼리에서 URL이 생성될 때 파일에 대한 접근 권한을 제어할 수 있습니다. 파일이 _제공될_ 때 접근을 제어해야 하는 경우, 대신 자체 파일 제공 HTTP 액션을 정의할 수 있습니다.
+
+## HTTP 액션에서 파일 제공하기
+
+[HTTP 액션](/functions/http-actions.mdx)에서 직접 파일을 제공할 수 있습니다.
+HTTP 액션은 스토리지 ID로 매핑할 수 있는 매개변수 또는 스토리지 ID 자체를 받아야 합니다.
+
+이를 통해 웹사이트에 이미지가 표시될 때와 같이 파일이 제공되는 시점에 접근 제어가 가능합니다. 하지만 HTTP 액션 응답 크기는 [현재 제한](/functions/http-actions.mdx#limits)이 20MB입니다. 더 큰 파일의 경우 [위](#generating-file-urls-in-queries)에서 설명한 파일 URL을 사용해야 합니다.
+
+파일 [`Blob`](https://developer.mozilla.org/en-US/docs/Web/API/Blob) 객체는 [`ActionCtx`](/api/interfaces/server.GenericActionCtx) 객체의 [`storage.get`](/api/interfaces/server.StorageActionWriter#get) 함수를 통해 스토리지 ID로부터 생성할 수 있으며, 이는 `Response`로 반환될 수 있습니다:
+
+<TSAndJSSnippet title="convex/http.ts" sourceTS={Http} sourceJS={Http} snippet="getImage"
+highlightPatterns={["storage.get"]} prefix={
+    `import { httpRouter } from "convex/server";
+import { httpAction } from "./\_generated/server";
+import { Id } from "./\_generated/dataModel";
+
+const http = httpRouter();\
+
+`} suffix={"\nexport default http;"} />
+
+이러한 액션의 URL은 `img` 요소에서 직접 사용하여 이미지를 렌더링할 수 있습니다:
+
+<TSAndJSSnippet
+  title="src/App.tsx"
+  sourceTS={HttpAppTS}
+  sourceJS={HttpAppJS}
+  snippet="getImage"
+/>

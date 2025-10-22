@@ -1,0 +1,243 @@
+---
+title: 스트리밍
+sidebar_label: "스트리밍"
+sidebar_position: 340
+description: "에이전트와 메시지 스트리밍하기"
+---
+
+메시지 스트리밍은 사용자에게 피드백을 제공하고 LLM을 사용하는 동안 애플리케이션이 반응적으로 느껴지도록 하는 좋은 방법입니다.
+
+전통적으로 스트리밍은 클라이언트가 요청을 보내고 전체 응답이 스트리밍될 때까지 기다리는 HTTP 스트리밍을 통해 발생합니다. 이것은 AI SDK와 동일한 방식으로 에이전트를 사용할 때 즉시 작동합니다. 이것이 찾고 있는 전부라면 [에이전트로 직접 스트림 사용하기](#consuming-the-stream-yourself-with-the-agent)를 참조하세요.
+
+그러나 에이전트 컴포넌트를 사용하면 비동기로 메시지를 스트리밍할 수도 있습니다. 즉, HTTP 핸들러(`httpAction`)에서 생성이 발생할 필요가 없으며 네트워크 연결이 중단되더라도 하나 이상의 클라이언트에 응답을 스트리밍할 수 있습니다.
+
+스트리밍 부분을 그룹(델타)으로 데이터베이스에 저장하고 클라이언트가 생성될 때 주어진 스레드에 대한 새 델타를 구독하는 방식으로 작동합니다. 보너스로, 델타 스트리밍 방식을 사용하기 위해 에이전트의 `streamText` 버전을 사용할 필요가 없습니다([에이전트를 사용하지 않고 비동기로 델타 스트리밍하기](#advanced-streaming-deltas-asynchronously-without-using-an-agent) 참조).
+
+예제:
+
+- 서버:
+  [streaming.ts](https://github.com/get-convex/agent/blob/main/example/convex/chat/streaming.ts)
+- 클라이언트:
+  [ChatStreaming.tsx](https://github.com/get-convex/agent/blob/main/example/ui/chat/ChatStreaming.tsx)
+
+## 메시지 델타 스트리밍
+
+스트리밍하는 가장 쉬운 방법은 `agent.streamText`에 `{ saveStreamDeltas: true }`를 전달하는 것입니다. 이렇게 하면 생성될 때 응답의 청크가 델타로 저장되므로 모든 클라이언트가 스트림을 구독하고 일반 Convex 쿼리를 통해 실시간 업데이트 텍스트를 가져올 수 있습니다.
+
+```ts
+agent.streamText(ctx, { threadId }, { prompt }, { saveStreamDeltas: true });
+```
+
+이것은 클라이언트에 HTTP 스트리밍이 불가능한 비동기 함수에서 수행할 수 있습니다. 내부적으로 응답을 청크로 나누고 과도한 대역폭 사용을 방지하기 위해 델타 저장을 디바운스합니다. `saveStreamDeltas`에 더 많은 옵션을 전달하여 청킹 및 디바운싱을 구성할 수 있습니다.
+
+```ts
+  { saveStreamDeltas: { chunking: "line", throttleMs: 1000 } },
+```
+
+- `chunking`은 "word", "line", 정규식 또는 사용자 지정 함수일 수 있습니다.
+- `throttleMs`는 델타가 저장되는 빈도입니다. 델타당 여러 청크를 전송하고, 순차적으로 쓰며, throttleMs보다 빠르게 쓰지 않습니다([단일 플라이트](https://stack.convex.dev/throttling-requests-by-single-flighting)).
+
+## 스트리밍된 델타 조회하기
+
+클라이언트가 메시지를 스트리밍하려면 스트림 델타를 반환하는 쿼리를 노출해야 합니다. 이것은 [메시지 조회](./messages.mdx#retrieving-messages)와 매우 유사하지만 몇 가지 변경 사항이 있습니다:
+
+```ts
+import { paginationOptsValidator } from "convex/server";
+// highlight-next-line
+import { vStreamArgs, listUIMessages, syncStreams } from "@convex-dev/agent";
+import { components } from "./_generated/api";
+
+export const listThreadMessages = query({
+  args: {
+    threadId: v.string(),
+    // Pagination options for the non-streaming messages.
+    paginationOpts: paginationOptsValidator,
+    // highlight-next-line
+    streamArgs: vStreamArgs,
+  },
+  handler: async (ctx, args) => {
+    await authorizeThreadAccess(ctx, threadId);
+
+    // Fetches the regular non-streaming messages.
+    const paginated = await listUIMessages(ctx, components.agent, args);
+
+    // highlight-next-line
+    const streams = await syncStreams(ctx, components.agent, args);
+
+    // highlight-next-line
+    return { ...paginated, streams };
+  },
+});
+```
+
+[비스트리밍 메시지](./messages.mdx#useuimessages-hook)와 유사하게 `useUIMessages` 훅을 사용하여 메시지를 가져올 수 있으며, 스트리밍을 활성화하려면 `stream: true`를 훅에 전달합니다.
+
+```ts
+const { results, status, loadMore } = useUIMessages(
+  api.chat.streaming.listMessages,
+  { threadId },
+  // highlight-next-line
+  { initialNumItems: 10, stream: true },
+);
+```
+
+### `SmoothText` 및 `useSmoothText`로 텍스트 부드럽게 하기
+
+`useSmoothText` 훅은 텍스트가 변경될 때 텍스트를 부드럽게 만드는 간단한 훅입니다. 모든 텍스트와 함께 작동할 수 있지만 특히 스트리밍 텍스트에 유용합니다.
+
+```ts
+import { useSmoothText } from "@convex-dev/agent/react";
+
+// in the component
+const [visibleText] = useSmoothText(message.text);
+```
+
+초기 초당 문자 수를 구성할 수 있습니다. 시간이 지남에 따라 들어오는 텍스트의 평균 속도에 맞게 조정됩니다.
+
+기본적으로 `startStreaming: true`를 전달하지 않으면 받은 첫 번째 텍스트를 스트리밍하지 않습니다. 스트리밍 및 비스트리밍 메시지가 혼합되어 있을 때 즉시 스트리밍을 시작하려면 다음과 같이 하십시오:
+
+```ts
+import { useSmoothText, type UIMessage } from "@convex-dev/agent/react";
+
+function Message({ message }: { message: UIMessage }) {
+  const [visibleText] = useSmoothText(message.text, {
+    startStreaming: message.status === "streaming",
+  });
+  return <div>{visibleText}</div>;
+}
+```
+
+훅을 사용하고 싶지 않다면 `SmoothText` 컴포넌트를 사용할 수 있습니다.
+
+```tsx
+import { SmoothText } from "@convex-dev/agent/react";
+
+//...
+<SmoothText text={message.text} />;
+```
+
+## 에이전트로 직접 스트림 사용하기
+
+기본 AI SDK로 할 수 있는 모든 방식으로 스트림을 사용할 수 있습니다. 예를 들어 콘텐츠를 반복하거나 [`result.toDataStreamResponse()`](https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#to-data-stream-response)를 사용합니다.
+
+델타도 저장하지 않는 경우 다음과 같이 보일 수 있습니다:
+
+```ts
+const result = await agent.streamText(ctx, { threadId }, { prompt });
+
+for await (const textPart of result.textStream) {
+  console.log(textPart);
+}
+```
+
+스트림이 발생하는 동안 반복하고 델타도 저장하려면 `streamText`에 `{ saveStreamDeltas: { returnImmediately: true } }`를 전달할 수 있습니다. 이렇게 하면 즉시 반환되고 스트림을 실시간으로 반복하거나 HTTP Response로 스트림을 반환할 수 있습니다.
+
+```ts
+const result = await agent.streamText(
+  ctx,
+  { threadId },
+  { prompt },
+  { saveStreamDeltas: { returnImmediately: true } },
+);
+
+return result.toUIMessageStreamResponse();
+```
+
+에이전트가 전혀 관여하지 않으려면 다음 섹션에서 델타를 직접 저장하는 방법을 보여줍니다.
+
+## 고급: 에이전트를 사용하지 않고 비동기로 델타 스트리밍하기
+
+에이전트의 `streamText` 래퍼를 사용하지 않고 메시지를 스트리밍하려면 AI SDK에서 직접 `streamText` 함수를 사용할 수 있습니다.
+
+델타를 데이터베이스에 저장하기 위해 `DeltaStreamer` 클래스를 사용하고, 위의 접근 방식을 사용하여 메시지를 검색하는 것으로 구성됩니다. 그러나 데이터베이스에서 비스트리밍 메시지를 읽는 것을 포함하지 않는 더 직접적인 `useStreamingUIMessages` 훅을 사용할 수 있습니다.
+
+스트림을 읽고 쓰기 위한 요구 사항은 에이전트 컴포넌트에서 `threadId`를 사용하고 각 스트림이 클라이언트 측에서 순서를 지정하기 위해 고유한 `order`로 저장된다는 것뿐입니다.
+
+```ts
+import { components } from "./_generated/api";
+import { type ActionCtx } from "./_generated/server";
+import { DeltaStreamer, compressUIMessageChunks } from "@convex-dev/agent";
+import { streamText } from "ai";
+import { openai } from "@ai-sdk/openai";
+
+async function stream(ctx: ActionCtx, threadId: string, order: number) {
+  const streamer = new DeltaStreamer(
+    components.agent,
+    ctx,
+    {
+      throttleMs: 100,
+      onAsyncAbort: async () => console.error("Aborted asynchronously"),
+      // This will collapse multiple tiny deltas into one if they're being sent
+      // in quick succession.
+      compress: compressUIMessageChunks,
+      abortSignal: undefined,
+    },
+    {
+      threadId,
+      format: "UIMessageChunk",
+      order,
+      stepOrder: 0,
+      userId: undefined,
+    },
+  );
+  // Do the normal streaming with the AI SDK
+  const response = streamText({
+    model: openai.chat("gpt-4o-mini"),
+    prompt: "Tell me a joke",
+    abortSignal: streamer.abortController.signal,
+    onError: (error) => {
+      console.error(error);
+      streamer.fail(errorToString(error.error));
+    },
+  });
+
+  // We could await here if we wanted to wait for the stream to finish,
+  // but instead we have it process asynchronously so we can return a streaming
+  // http Response.
+  void streamer.consumeStream(response.toUIMessageStream());
+
+  return {
+    // e.g. to do `response.toTextStreamResponse()` for HTTP streaming.
+    response,
+    // We don't need this on the client, but with it we can have some clients
+    // selectively not stream down deltas when they're using HTTP streaming
+    // already.
+    streamId: await streamer.getStreamId(),
+  };
+}
+```
+
+클라이언트를 위해 델타를 가져오려면 일반 에이전트 스트리밍에서처럼 `syncStreams` 함수를 사용할 수 있습니다. 비스트리밍 메시지를 가져오고 싶지 않다면 다음과 같이 단순화할 수 있습니다:
+
+```ts
+import { v } from "convex/values";
+import { vStreamArgs, syncStreams } from "@convex-dev/agent";
+import { query } from "./_generated/server";
+import { components } from "./_generated/api";
+
+export const listStreams = query({
+  args: {
+    threadId: v.string(),
+    streamArgs: vStreamArgs,
+  },
+  handler: async (ctx, args) => {
+    // await authorizeThreadAccess(ctx, args.threadId);
+    const streams = await syncStreams(ctx, components.agent, {
+      ...args,
+      // By default syncStreams only returns streaming messages. However, if
+      // your messages aren't saved in the same transaction as the streaming
+      // ends, you might want to include them here to avoid UI flashes.
+      includeStatuses: ["streaming", "aborted", "finished"],
+    });
+    return { streams };
+  },
+});
+```
+
+클라이언트 측에서 `useStreamingUIMessages` 훅을 사용하여 메시지를 가져올 수 있습니다. `threadId` 외에 더 많은 인자를 정의한 경우 여기에서 `threadId`와 함께 전달됩니다.
+
+```ts
+const messages = useStreamingUIMessages(api.example.listStreams, { threadId });
+```
+
+특정 `streamId`를 건너뛰거나 이전 스트림을 무시하기 위해 일부 `order`에서 시작하는 다른 매개변수를 전달할 수 있습니다.

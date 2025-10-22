@@ -1,0 +1,22 @@
+---
+title: "데이터 가져오기 및 내보내기"
+sidebar_position: 90
+description:
+  "기존 소스에서 데이터를 가져오고 외부 시스템으로 데이터를 내보냅니다"
+---
+
+기존 데이터에서 앱을 부트스트랩하는 경우 Convex는 데이터를 가져오는 세 가지 방법을 제공합니다:
+
+- [CLI](/database/import-export/import.mdx#single-table-import)를 통해 csv/json에서 단일 테이블로 가져오기.
+- [대시보드](/database/backup-restore) 또는
+  [CLI](/database/import-export/import.mdx#restore-data-from-a-backup-zip-file)를 통해 백업에서 복원.
+- Airbyte 대상 커넥터를 통해 기존 데이터베이스에서 [스트리밍 가져오기](/production/integrations/streaming-import-export.md).
+
+Convex에서 데이터를 내보내는 두 가지 방법이 있습니다.
+
+- [대시보드](/database/backup-restore)에서 백업을 zip으로 다운로드.
+- Fivetran 또는 Airbyte를 통해 외부 데이터베이스로 [스트리밍 내보내기](/production/integrations/streaming-import-export.md)를 설정합니다. 맞춤형 BI 설정(예: [Snowflake](https://www.snowflake.com/),
+  [Databricks](https://www.databricks.com) 또는
+  [BigQuery](https://cloud.google.com/bigquery))에 연결하는 데 적합합니다:
+
+<BetaAdmonition feature="데이터 가져오기 및 내보내기" verb="is" />

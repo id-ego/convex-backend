@@ -1,0 +1,172 @@
+---
+title: React 빠른 시작
+sidebar_label: React
+description: "React 프로젝트에 Convex 추가하기"
+hide_table_of_contents: true
+sidebar_position: 100
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/sampleData.jsonl";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/convex/tasks.js";
+import main from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/main.jsx";
+import App from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/App.jsx";
+import tasksTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/convex/tasks.ts";
+import mainTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/main.tsx";
+import AppTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/App.tsx";
+
+<iframe
+  width="560"
+  height="315"
+  src="https://www.youtube.com/embed/4MgsvjMb59Q"
+  title="YouTube video player"
+  frameborder="0"
+  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+  referrerpolicy="strict-origin-when-cross-origin"
+  allowfullscreen
+></iframe>
+
+Convex와 React를 빠르게 설정하려면 다음을 실행하세요:
+
+<p>
+  <b>
+    <CodeWithCopyButton text="npm create convex@latest" />
+  </b>
+</p>
+
+또는 아래 가이드를 따르세요.
+
+---
+
+Vite를 사용하는 React 앱에서 Convex 데이터를 쿼리하는 방법을 알아보세요<LanguageSelector verbose />
+
+<StepByStep>
+  <Step title="React 앱 생성하기">
+    `create vite` 명령을 사용하여 React 앱을 생성하세요.
+
+    <JSDialectVariants>
+      ```sh
+      npm create vite@latest my-app -- --template react-ts
+      ```
+
+      ```sh
+      npm create vite@latest my-app -- --template react
+      ```
+    </JSDialectVariants>
+
+  </Step>
+  <Step title="Convex 클라이언트 및 서버 라이브러리 설치하기">
+    시작하려면 React 앱에서 Convex를 사용하기 위한 편리한 인터페이스를 제공하는 `convex` 패키지를 설치하세요.
+
+    앱 디렉토리로 이동하여 `convex`를 설치하세요.
+
+
+    ```sh
+    cd my-app && npm install convex
+    ```
+
+  </Step>
+  <Step title="Convex 개발 배포 설정하기">
+    다음으로, `npx convex dev`를 실행하세요. 이것은 GitHub로 로그인하고, 프로젝트를 생성하고, 프로덕션 및 배포 URL을 저장하라는 메시지를 표시합니다.
+
+    또한 백엔드 API 함수를 작성할 수 있는 `convex/` 폴더를 생성합니다. `dev` 명령은 계속 실행되면서 함수를 클라우드의 개발 배포와 동기화합니다.
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스용 샘플 데이터 생성하기">
+    새 터미널 창에서 샘플 데이터가 포함된 `sampleData.jsonl` 파일을 생성하세요.
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="데이터베이스에 샘플 데이터 추가하기">
+    이제 프로젝트가 준비되었으므로 `import` 명령을 사용하여 샘플 데이터가 포함된 `tasks` 테이블을 Convex 데이터베이스에 추가하세요.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="(선택사항) 스키마 정의하기">
+    `convex/` 폴더에 데이터에 대한 설명이 포함된 새 파일 `schema.ts`를 추가하세요.
+
+    이것은 TypeScript를 사용한 선택적 타입 검사를 위해 데이터 타입을 선언하며, 런타임에도 적용됩니다.
+
+    <JSDialectVariants>
+    또는 `.eslintrc.cjs` 파일에서 `'plugin:@typescript-eslint/recommended-requiring-type-checking',` 줄을 제거하여 타입 검사 엄격성을 낮출 수 있습니다.
+
+    <></>
+    </JSDialectVariants>
+
+    ```ts noDialect title="convex/schema.ts"
+    import { defineSchema, defineTable } from "convex/server";
+    import { v } from "convex/values";
+
+    export default defineSchema({
+      tasks: defineTable({
+        text: v.string(),
+        isCompleted: v.boolean(),
+      }),
+    });
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스 쿼리 노출하기">
+    `convex/` 폴더에 데이터를 로드하는 쿼리 함수가 포함된 새 파일 <JSDialectFileName name="tasks.ts" />를 추가하세요.
+
+    이 파일에서 쿼리 함수를 내보내면 파일과 내보내기 이름으로 명명된 API 함수 `api.tasks.get`이 선언됩니다.
+
+    <TSAndJSSnippet
+      sourceTS={tasksTS}
+      sourceJS={tasks}
+      title="convex/tasks.ts"
+    />
+
+  </Step>
+
+  <Step title="앱을 백엔드에 연결하기">
+    <JSDialectFileName name="src/main.jsx" />에서 `ConvexReactClient`를 생성하고 이를 앱을 래핑하는 `ConvexProvider`에 전달하세요.
+
+    <TSAndJSSnippet
+      sourceTS={mainTS}
+      sourceJS={main}
+      title="src/main.tsx"
+      highlightPatterns={[ "Convex", ]}
+    />
+
+  </Step>
+
+  <Step title="앱에 데이터 표시하기">
+    <JSDialectFileName name="src/App.jsx" />에서 `useQuery` 훅을 사용하여 `api.tasks.get` API 함수에서 데이터를 가져와 표시하세요.
+
+    <TSAndJSSnippet
+      sourceTS={AppTS}
+      sourceJS={App}
+      title="src/App.tsx"
+      highlightPatterns={[ "useQuery", "api", "tasks", "text", "\\)\\)\\}" ]}
+    />
+
+  </Step>
+
+  <Step title="앱 시작하기">
+    앱을 시작하고, 브라우저에서 [http://localhost:5173/](http://localhost:5173/)을 열어 작업 목록을 확인하세요.
+
+    ```sh
+    npm run dev
+    ```
+
+  </Step>
+
+</StepByStep>
+
+전체 [React 문서](/client/react.mdx)를 참조하세요.

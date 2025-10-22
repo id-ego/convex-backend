@@ -1,0 +1,156 @@
+---
+title: Chef
+description: "How to use Chef by Convex"
+---
+
+셰프는 복잡한 풀스택 앱을 구축하는 AI 앱 빌더입니다. Slack, Instagram, Notion과 같은 앱을 한 번에 구축하기 위해 Convex 플랫폼의 모든 기능을 활용합니다.
+
+즉, 셰프는 실시간 앱을 구축하고, 파일을 업로드하고, 텍스트 검색을 수행하고, Convex 컴포넌트를 활용할 수 있습니다.
+
+<CardLink
+  className="convex-hero-card"
+  item={{
+    href: "https://chef.convex.dev",
+    label: "Prompt to start an app with Convex Chef",
+  }}
+/>
+
+<div className="center-image" style={{ maxWidth: "500px" }}>
+  ![Chef Screenshot](/screenshots/chef_preview.png)
+</div>
+
+## 프로덕션에 배포
+
+셰프는 앱의 개발 버전을 배포하여 친구들과 즉시 공유하고 사용해 볼 수 있는 기능이 내장되어 있습니다.
+
+장기적으로 구축하고 유지 관리할 앱의 경우 코드를 다운로드하여 선호하는 IDE로 가져오는 것이 좋습니다. 셰프에서 코드를 다운로드하면 프로젝트에 자동으로 [Convex용 Cursor 규칙](/ai.mdx)이 포함되어 자신 있게 계속 코딩할 수 있습니다.
+
+### 코드 다운로드
+
+<div className="center-image" style={{ maxWidth: "700px" }}>
+  ![Chef Screenshot](/screenshots/chef_download.png)
+</div>
+
+셰프 UI의 오른쪽 상단에 코드 다운로드 버튼이 있습니다. 코드를 다운로드하면 zip 파일을 받게 됩니다.
+
+파일의 압축을 풀고 원하는 위치에 폴더를 배치합니다. 편의를 위해 폴더 이름을 앱 이름으로 변경하는 것이 좋습니다. 나머지 설정을 위해 터미널을 열고 앱으로 `cd`하세요:
+
+```bash
+cd ~/<app folder>
+```
+
+### 종속성 설치
+
+다음 명령을 실행하여 프로젝트의 모든 종속성을 설치합니다
+
+```bash
+npm i
+```
+
+### 앱 실행
+
+다음 명령을 실행하여 앱을 실행하고, 아직 설정하지 않았다면 Convex를 설정합니다.
+
+```bash
+npm run dev
+```
+
+머신에서 Convex에 로그인하라는 지침을 따르세요.
+
+<Admonition type="caution">
+  이제 이 앱의 개발을 셰프로부터 인계받았습니다. 셰프는 프로젝트를 다시 가져오거나 외부에서 진행 상황을 추적할 수 없습니다. 셰프에서 이 프로젝트로 돌아가면 프로젝트에 충돌이 발생합니다.
+</Admonition>
+
+### 프론트엔드 빌드 스크립트 설정
+
+셰프 프로젝트에는 빌드 스크립트가 포함되어 있지 않습니다. 따라서 `package.json` 파일에 다음을 추가해야 합니다:
+
+```tsx
+  "scripts": {
+		//... other scripts
+    "build": "vite build"
+  },
+```
+
+### 권장 사항: Git 설정
+
+터미널에서 다음 세 가지 명령을 실행하여 앱에 대한 git을 설정합니다. 다운로드한 코드에는 `.gitignore` 파일이 포함되어 있습니다.
+
+```bash
+git init
+git add --all
+git commit -m "Initial commit"
+```
+
+아래의 프로덕션 호스팅 가이드를 사용하려는 경우 [GitHub](https://github.com/)로 원격 git 저장소를 설정하는 것도 권장됩니다.
+
+### 프로덕션 프론트엔드 호스팅 설정
+
+Convex [호스팅 가이드](/production/hosting/hosting.mdx) 중 하나를 따라 프론트엔드 호스팅 및 프론트엔드와 백엔드 코드의 지속적 배포를 설정하세요.
+
+### 프로덕션용 Convex Auth 초기화
+
+프로덕션 배포가 완료되면 [프로덕션용 Convex Auth를 설정](https://labs.convex.dev/auth/production)해야 합니다.
+
+## 통합
+
+### OpenAI
+
+셰프에게 AI를 사용하도록 요청하면 기본적으로 제한된 수의 호출로 내장된 OpenAI 프록시를 사용하려고 시도합니다. 이를 통해 AI 앱 아이디어를 신속하게 프로토타이핑할 수 있습니다.
+
+그러나 어느 시점에서 내장된 호출 수가 소진되면 자체 OpenAI API 키를 제공하고 프록시 URL을 제거해야 합니다.
+
+즉, 다음과 같은 코드를 찾아야 합니다:
+
+```typescript
+const openai = new OpenAI({
+  baseURL: process.env.CONVEX_OPENAI_BASE_URL,
+  apiKey: process.env.CONVEX_OPENAI_API_KEY,
+});
+```
+
+그리고 baseURL 매개변수를 제거하세요:
+
+```typescript
+const openai = new OpenAI({
+  apiKey: process.env.CONVEX_OPENAI_API_KEY,
+});
+```
+
+셰프가 자동으로 환경 변수를 변경하라는 메시지를 표시할 수 있습니다. 하지만 그렇지 않은 경우 "Database" 탭으로 이동하여 변경할 수 있습니다. 그런 다음 Settings > Environment Variables를 클릭하고 `CONVEX_OPENAI_API_KEY`를 [개인 OpenAI 키](https://platform.openai.com)로 변경하세요.
+
+우리는 시간이 지남에 따라 이 전환을 더 좋게 만들 계획입니다.
+
+### Resend
+
+셰프는 Resend를 통해 본인에게 이메일을 보낼 수 있는 내장 방법을 제공합니다. 셰프에 로그인할 때 사용한 계정으로만 이메일을 보낼 수 있습니다. 누구에게나 이메일을 보내려면 도메인 이름으로 프로덕션용 앱을 설정해야 합니다. 이는 스팸과 싸우기 위한 이메일 제공자 작동 방식의 제한 사항입니다.
+
+## FAQ
+
+### 셰프는 어떤 브라우저를 지원하나요?
+
+셰프는 데스크톱/노트북 브라우저에서 가장 잘 사용됩니다. 일부 태블릿이나 모바일 브라우저에서 작동할 수 있습니다. 셰프는 어떤 플랫폼의 Safari에서도 작동하지 않습니다.
+
+### 셰프의 가격 책정은 어떻게 되나요?
+
+셰프 가격은 주로 AI 토큰 사용량을 기반으로 합니다. 무료 플랜은 적은 수의 프롬프트로 앱의 첫 번째 버전을 구축하기에 충분한 토큰을 제공합니다. 그 후에는 사용한 만큼만 토큰 비용을 지불할 수 있는 Starter 플랜으로 업그레이드할 수 있습니다.
+
+### 셰프와 Convex의 차이점은 무엇인가요?
+
+셰프는 풀스택 앱을 구축하는 AI 앱 빌더입니다. Convex는 셰프를 구동하는 백엔드이자 데이터베이스입니다.
+
+### 기존 앱을 셰프로 가져올 수 있나요?
+
+셰프는 현재 가져오기 및 GitHub 통합 기능이 없습니다. 하지만 Cursor와 같은 Agentic IDE에서 [Convex AI 규칙 및 MCP 서버](/ai.mdx)를 설정하여 대부분의 가치를 얻을 수 있습니다.
+
+### 셰프를 위한 모범 사례가 있나요?
+
+네! 우리 엔지니어 중 한 명이 작성한 [팁 게시물](https://stack.convex.dev/chef-cookbook-tips-working-with-ai-app-builders)을 확인하세요.
+
+### 셰프가 사용할 수 있는 Convex 컴포넌트는 무엇인가요?
+
+셰프는 [협업 텍스트 에디터](https://www.convex.dev/components/prosemirror-sync) 컴포넌트와 [프레즌스](https://www.convex.dev/components/presence) 컴포넌트를 사용할 수 있습니다. 곧 더 많은 컴포넌트를 지원할 예정입니다. 셰프는 텍스트 검색, 파일 저장소 등과 같은 다른 모든 Convex 기능을 지원합니다.
+
+## 제한 사항
+
+셰프는 Convex, Convex Auth 및 Vite로 구동되는 React를 사용하는 단일 템플릿에서 작동합니다. 이러한 기술을 전환하는 것은 셰프에서 지원되지 않습니다.

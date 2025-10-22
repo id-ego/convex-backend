@@ -1,0 +1,540 @@
+---
+title: "Convex & Clerk"
+sidebar_label: "Clerk"
+sidebar_position: 10
+description: "Clerk 인증을 Convex와 통합하기"
+---
+
+import UnderTheHood from "@site/docs/auth/_under_the_hood.mdx";
+import ConfigTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainClerk.tsx";
+import ConfigJS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/_mainClerk.jsx";
+import ConfigEnvTS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite-ts/src/_mainClerkEnv.tsx";
+import ConfigEnvJS from "!!raw-loader!@site/../private-demos/quickstarts/react-vite/src/_mainClerkEnv.jsx";
+import App from "!!raw-loader!@site/../private-demos/snippets/src/clerkApp.tsx";
+import Messages from "!!raw-loader!@site/../private-demos/snippets/convex/clerkMessages.ts";
+
+[Clerk](https://clerk.com)은 비밀번호, 소셜 ID 제공자, 일회성 이메일 또는 SMS 액세스 코드, 다단계 인증 및 사용자 관리를 통한 로그인을 제공하는 인증 플랫폼입니다.
+
+## 시작하기
+
+Convex는 Clerk과의 통합을 위해 특별히 설계된 `<ConvexProviderWithClerk>` 제공자를 제공합니다. Next.js 및 Expo SDK와 같은 Clerk의 모든 React 기반 SDK와 함께 작동합니다.
+
+사용 중인 Clerk SDK에 대한 다음 섹션을 참조하세요:
+
+- [React](#react) - SDK가 목록에 없는 경우 시작점으로 사용
+- [Next.js](#nextjs)
+- [Tanstack Start](#tanstack-start)
+
+### React
+
+**예제:**
+[React with Convex and Clerk](https://github.com/get-convex/template-react-vite-clerk)
+
+이 가이드는 이미 Convex가 통합된 React 앱이 있다고 가정합니다. 그렇지 않은 경우 먼저 [Convex React 빠른 시작](/quickstart/react.mdx)을 따르세요. 그런 다음:
+
+<StepByStep>
+  <Step title="Clerk 가입하기">
+    [clerk.com/sign-up](https://dashboard.clerk.com/sign-up)에서 무료 Clerk 계정에 가입하세요.
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/clerk-signup.png" alt="Clerk에 가입하기" width={200} />
+    </p>
+
+  </Step>
+  <Step title="Clerk에서 애플리케이션 만들기">
+    사용자가 로그인할 방법을 선택하세요.
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/clerk-createapp.png" alt="Clerk 애플리케이션 만들기" width={200} />
+    </p>
+
+  </Step>
+  <Step title="JWT 템플릿 만들기">
+    Clerk 대시보드에서 [JWT 템플릿](https://dashboard.clerk.com/last-active?path=jwt-templates) 페이지로 이동합니다.
+
+    _New template_을 선택한 다음 템플릿 목록에서 _Convex_를 선택합니다. 템플릿의 설정 페이지로 리디렉션됩니다. **JWT 토큰의 이름을 변경하지 마세요. `convex`로 유지해야 합니다.**
+
+    _Issuer_ URL을 복사하여 안전한 곳에 저장하세요. 이 URL은 Clerk JWT 템플릿의 발급자 도메인이며, Clerk 앱의 _Frontend API URL_입니다. 개발 환경에서는 `https://verb-noun-00.clerk.accounts.dev` 형식입니다. 프로덕션에서는 `https://clerk.<your-domain>.com` 형식입니다.
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/clerk-createjwt.png" alt="JWT 템플릿 만들기" width={400} />
+    </p>
+
+  </Step>
+  <Step title="Clerk 발급자 도메인으로 Convex 구성하기">
+    앱의 `convex` 폴더에 다음 코드로 새 파일 <JSDialectFileName name="auth.config.ts" />를 만드세요. 이것은 액세스 토큰 검증을 위한 서버 측 구성입니다.
+
+    ```ts title="convex/auth.config.ts"
+    import { AuthConfig } from "convex/server";
+
+    export default {
+      providers: [
+        {
+          // "convex" JWT 템플릿의 Clerk Issuer URL로 교체하거나
+          // `process.env.CLERK_JWT_ISSUER_DOMAIN`으로 교체하고
+          // Convex 대시보드에서 CLERK_JWT_ISSUER_DOMAIN을 구성하세요
+          // https://docs.convex.dev/auth/clerk#configuring-dev-and-prod-instances 참조
+          domain: process.env.CLERK_JWT_ISSUER_DOMAIN!,
+          applicationID: "convex",
+        },
+      ]
+    } satisfies AuthConfig;
+    ```
+
+  </Step>
+  <Step title="변경 사항 배포하기">
+    `npx convex dev`를 실행하여 구성을 백엔드에 자동으로 동기화하세요.
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+  <Step title="clerk 설치하기">
+    새 터미널 창에서 Clerk React SDK를 설치하세요:
+
+    ```sh
+    npm install @clerk/clerk-react
+    ```
+
+  </Step>
+  <Step title="Clerk API 키 설정하기">
+    Clerk 대시보드에서 [**API keys**](https://dashboard.clerk.com/last-active?path=api-keys) 페이지로 이동합니다. **Quick Copy** 섹션에서 Clerk Publishable Key를 복사하여 `CLERK_PUBLISHABLE_KEY` 환경 변수로 설정하세요. Vite를 사용하는 경우 `VITE_` 접두사를 붙여야 합니다.
+
+    ```env title=".env"
+    VITE_CLERK_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+    ```
+
+  </Step>
+  <Step title="ConvexProviderWithClerk 구성하기">
+    Clerk과 Convex 모두 인증 및 클라이언트 컨텍스트를 제공하기 위해 필요한 제공자 컴포넌트가 있습니다.
+
+    이미 앱을 `<ConvexProvider>`로 래핑했어야 합니다. 이를 `<ConvexProviderWithClerk>`로 교체하고 Clerk의 `useAuth()` 훅을 전달하세요.
+
+    그런 다음 `<ClerkProvider>`로 래핑하세요. `<ClerkProvider>`는 `publishableKey` prop이 필요하며, 이를 `VITE_CLERK_PUBLISHABLE_KEY` 환경 변수로 설정할 수 있습니다.
+
+    <TSAndJSSnippet
+      title="src/main.tsx"
+      sourceTS={ConfigTS}
+      sourceJS={ConfigJS}
+      highlightPatterns={["ClerkProvider", "ConvexProviderWithClerk"]}
+    />
+
+  </Step>
+
+  <Step title="인증 상태에 따라 UI 표시하기">
+    사용자가 로그인했거나 로그아웃했을 때 표시할 UI를 Convex의 `<Authenticated>`, `<Unauthenticated>` 및 `<AuthLoading>` 헬퍼 컴포넌트를 사용하여 제어할 수 있습니다. 이들은 각각 Clerk의 `<SignedIn>`, `<SignedOut>` 및 `<ClerkLoading>` 컴포넌트 대신 사용해야 합니다.
+
+    사용자가 로그인했는지 확인해야 할 때는 Clerk의 `useAuth()` 훅 대신 [`useConvexAuth()`](/api/modules/react#useconvexauth) 훅을 사용하는 것이 중요합니다. `useConvexAuth()` 훅은 브라우저가 Convex 백엔드에 인증된 요청을 하는 데 필요한 인증 토큰을 가져왔는지, 그리고 Convex 백엔드가 이를 검증했는지 확인합니다.
+
+    다음 예제에서 `<Content />` 컴포넌트는 `<Authenticated>`의 자식이므로, 그 내용과 모든 자식 컴포넌트는 인증된 사용자를 보장받으며, Convex 쿼리는 인증을 요구할 수 있습니다.
+
+    ```tsx title="src/App.tsx"
+    import { SignInButton, UserButton } from "@clerk/clerk-react";
+    import { Authenticated, Unauthenticated, AuthLoading, useQuery } from "convex/react";
+    import { api } from "../convex/_generated/api";
+
+    function App() {
+      return (
+        <main>
+          <Unauthenticated>
+            <SignInButton />
+          </Unauthenticated>
+          <Authenticated>
+            <UserButton />
+            <Content />
+          </Authenticated>
+          <AuthLoading>
+            <p>Still loading</p>
+          </AuthLoading>
+        </main>
+      );
+    }
+
+    function Content() {
+      const messages = useQuery(api.messages.getForCurrentUser);
+      return <div>Authenticated content: {messages?.length}</div>;
+    }
+
+    export default App;
+    ```
+
+  </Step>
+
+  <Step title="Convex 함수에서 인증 상태 사용하기">
+    클라이언트가 인증되면 `ctx.auth.getUserIdentity`를 통해 JWT에 저장된 정보에 접근할 수 있습니다.
+
+    클라이언트가 인증되지 않았다면 `ctx.auth.getUserIdentity`는 `null`을 반환합니다.
+
+    **이 쿼리를 호출하는 컴포넌트가 `convex/react`의 `<Authenticated>`의 자식인지 확인하세요**. 그렇지 않으면 페이지 로드 시 오류가 발생합니다.
+
+    <TSAndJSSnippet
+      title="convex/messages.ts"
+      sourceTS={Messages}
+      sourceJS={Messages}
+    />
+
+  </Step>
+</StepByStep>
+
+### Next.js
+
+**예제:**
+[Next.js with Convex and Clerk](https://github.com/get-convex/template-nextjs-clerk)
+
+이 가이드는 이미 Convex가 통합된 Next.js 앱이 있다고 가정합니다. 그렇지 않은 경우 먼저 [Convex Next.js 빠른 시작](/quickstart/nextjs.mdx)을 따르세요. 그런 다음:
+
+<StepByStep>
+  <Step title="Clerk 가입하기">
+    [clerk.com/sign-up](https://dashboard.clerk.com/sign-up)에서 무료 Clerk 계정에 가입하세요.
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/clerk-signup.png" alt="Clerk에 가입하기" width={200} />
+    </p>
+
+  </Step>
+  <Step title="Clerk에서 애플리케이션 만들기">
+    사용자가 로그인할 방법을 선택하세요.
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/clerk-createapp.png" alt="Clerk 애플리케이션 만들기" width={200} />
+    </p>
+
+  </Step>
+  <Step title="JWT 템플릿 만들기">
+    Clerk 대시보드에서 [JWT 템플릿](https://dashboard.clerk.com/last-active?path=jwt-templates) 페이지로 이동합니다.
+
+    _New template_을 선택한 다음 템플릿 목록에서 _Convex_를 선택합니다. 템플릿의 설정 페이지로 리디렉션됩니다. **JWT 토큰의 이름을 변경하지 마세요. `convex`로 유지해야 합니다.**
+
+    _Issuer_ URL을 복사하여 안전한 곳에 저장하세요. 이 URL은 Clerk JWT 템플릿의 발급자 도메인이며, Clerk 앱의 _Frontend API URL_입니다. 개발 환경에서는 `https://verb-noun-00.clerk.accounts.dev` 형식입니다. 프로덕션에서는 `https://clerk.<your-domain>.com` 형식입니다.
+
+    <p style={{textAlign: 'center'}}>
+      <img src="/screenshots/clerk-createjwt.png" alt="JWT 템플릿 만들기" width={400} />
+    </p>
+
+  </Step>
+  <Step title="Clerk 발급자 도메인으로 Convex 구성하기">
+    앱의 `convex` 폴더에 다음 코드로 새 파일 <JSDialectFileName name="auth.config.ts" />를 만드세요. 이것은 액세스 토큰 검증을 위한 서버 측 구성입니다.
+
+    ```ts title="convex/auth.config.ts"
+    import { AuthConfig } from "convex/server";
+
+    export default {
+      providers: [
+        {
+          // "convex" JWT 템플릿의 Clerk Issuer URL로 교체하거나
+          // `process.env.CLERK_JWT_ISSUER_DOMAIN`으로 교체하고
+          // Convex 대시보드에서 CLERK_JWT_ISSUER_DOMAIN을 구성하세요
+          // https://docs.convex.dev/auth/clerk#configuring-dev-and-prod-instances 참조
+          domain: process.env.CLERK_JWT_ISSUER_DOMAIN!,
+          applicationID: "convex",
+        },
+      ]
+    } satisfies AuthConfig;
+    ```
+
+  </Step>
+  <Step title="변경 사항 배포하기">
+    `npx convex dev`를 실행하여 구성을 백엔드에 자동으로 동기화하세요.
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+  <Step title="clerk 설치하기">
+    새 터미널 창에서 Clerk Next.js SDK를 설치하세요:
+
+    ```sh
+    npm install @clerk/nextjs
+    ```
+
+  </Step>
+  <Step title="Clerk API 키 설정하기">
+    Clerk 대시보드에서 [**API keys**](https://dashboard.clerk.com/last-active?path=api-keys) 페이지로 이동합니다. **Quick Copy** 섹션에서 Clerk Publishable Key와 Secret Key를 복사하여 각각 `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` 및 `CLERK_SECRET_KEY` 환경 변수로 설정하세요.
+
+    ```env title=".env"
+    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+    CLERK_SECRET_KEY=YOUR_SECRET_KEY
+    ```
+
+  </Step>
+  <Step title="Clerk 미들웨어 추가하기">
+    Clerk의 `clerkMiddleware()` 헬퍼는 앱 전체에서 사용자 인증 상태에 접근할 수 있게 합니다.
+
+    `middleware.ts` 파일을 만드세요.
+
+    `middleware.ts` 파일에서 `clerkMiddleware()` 헬퍼를 내보내세요:
+
+    ```tsx {{ filename: 'middleware.ts' }}
+    import { clerkMiddleware } from '@clerk/nextjs/server'
+
+    export default clerkMiddleware()
+
+    export const config = {
+      matcher: [
+        // Next.js 내부 및 모든 정적 파일 제외, 검색 매개변수에서 발견되지 않는 한
+        '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+        // API 라우트에 대해 항상 실행
+        '/(api|trpc)(.*)',
+      ],
+    }
+    ```
+
+    기본적으로 `clerkMiddleware()`는 어떤 라우트도 보호하지 않습니다. 모든 라우트는 공개이며 특정 라우트에 대한 보호를 선택해야 합니다. 특정 라우트에 대한 인증 요구 방법을 알아보려면 [Clerk 문서](https://clerk.com/docs/references/nextjs/clerk-middleware)를 참조하세요.
+
+  </Step>
+  <Step title="ConvexProviderWithClerk 구성하기">
+    Clerk과 Convex 모두 인증 및 클라이언트 컨텍스트를 제공하기 위해 필요한 제공자 컴포넌트가 있습니다.
+
+    일반적으로 `<ConvexProvider>`를 `<ConvexProviderWithClerk>`로 교체하지만, Next.js App Router를 사용하면 조금 더 복잡합니다.
+
+    `<ConvexProviderWithClerk>`는 `ConvexReactClient()`를 호출하여 Convex의 클라이언트를 가져오므로 클라이언트 컴포넌트에서 사용해야 합니다. `<ConvexProviderWithClerk>`를 사용할 `app/layout.tsx`는 서버 컴포넌트이며, 서버 컴포넌트는 클라이언트 컴포넌트 코드를 포함할 수 없습니다. 이를 해결하려면 먼저 `<ConvexProviderWithClerk>` 주위에 _래퍼_ 클라이언트 컴포넌트를 만들어야 합니다.
+
+    ```tsx {{ filename: 'components/ConvexClientProvider.tsx' }}
+    'use client'
+
+    import { ReactNode } from 'react'
+    import { ConvexReactClient } from 'convex/react'
+    import { ConvexProviderWithClerk } from 'convex/react-clerk'
+    import { useAuth } from '@clerk/nextjs'
+
+    if (!process.env.NEXT_PUBLIC_CONVEX_URL) {
+      throw new Error('Missing NEXT_PUBLIC_CONVEX_URL in your .env file')
+    }
+
+    const convex = new ConvexReactClient(process.env.NEXT_PUBLIC_CONVEX_URL)
+
+    export default function ConvexClientProvider({ children }: { children: ReactNode }) {
+      return (
+        <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
+          {children}
+        </ConvexProviderWithClerk>
+      )
+    }
+    ```
+
+  </Step>
+  <Step title="Clerk과 Convex로 앱 래핑하기">
+    이제 서버 컴포넌트인 `app/layout.tsx`가 `<ConvexProviderWithClerk>`를 직접 렌더링하는 대신 `<ConvexClientProvider>`를 렌더링할 수 있습니다. `<ClerkProvider>`가 `<ConvexClientProvider>`를 래핑하고 그 반대가 아닌 것이 중요합니다. Convex가 Clerk 컨텍스트에 접근할 수 있어야 하기 때문입니다.
+
+    ```tsx {{ filename: 'app/layout.tsx', mark: [5, 31] }}
+    import type { Metadata } from 'next'
+    import { Geist, Geist_Mono } from 'next/font/google'
+    import './globals.css'
+    import { ClerkProvider } from '@clerk/nextjs'
+    import ConvexClientProvider from '@/components/ConvexClientProvider'
+
+    const geistSans = Geist({
+      variable: '--font-geist-sans',
+      subsets: ['latin'],
+    })
+
+    const geistMono = Geist_Mono({
+      variable: '--font-geist-mono',
+      subsets: ['latin'],
+    })
+
+    export const metadata: Metadata = {
+      title: 'Clerk Next.js Quickstart',
+      description: 'Generated by create next app',
+    }
+
+    export default function RootLayout({
+      children,
+    }: Readonly<{
+      children: React.ReactNode
+    }>) {
+      return (
+        <html lang="en">
+          <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+            <ClerkProvider>
+              <ConvexClientProvider>{children}</ConvexClientProvider>
+            </ClerkProvider>
+          </body>
+        </html>
+      )
+    }
+    ```
+
+  </Step>
+  <Step title="인증 상태에 따라 UI 표시하기">
+    사용자가 로그인했거나 로그아웃했을 때 표시할 UI를 Convex의 `<Authenticated>`, `<Unauthenticated>` 및 `<AuthLoading>` 헬퍼 컴포넌트를 사용하여 제어할 수 있습니다. 이들은 각각 Clerk의 `<SignedIn>`, `<SignedOut>` 및 `<ClerkLoading>` 컴포넌트 대신 사용해야 합니다.
+
+    사용자가 로그인했는지 확인해야 할 때는 Clerk의 `useAuth()` 훅 대신 [`useConvexAuth()`](/api/modules/react#useconvexauth) 훅을 사용하는 것이 중요합니다. `useConvexAuth()` 훅은 브라우저가 Convex 백엔드에 인증된 요청을 하는 데 필요한 인증 토큰을 가져왔는지, 그리고 Convex 백엔드가 이를 검증했는지 확인합니다.
+
+    다음 예제에서 `<Content />` 컴포넌트는 `<Authenticated>`의 자식이므로, 그 내용과 모든 자식 컴포넌트는 인증된 사용자를 보장받으며, Convex 쿼리는 인증을 요구할 수 있습니다.
+
+    ```tsx title="app/page.tsx"
+    "use client";
+
+    import { Authenticated, Unauthenticated } from "convex/react";
+    import { SignInButton, UserButton } from "@clerk/nextjs";
+    import { useQuery } from "convex/react";
+    import { api } from "../convex/_generated/api";
+
+    export default function Home() {
+      return (
+        <>
+          <Authenticated>
+            <UserButton />
+            <Content />
+          </Authenticated>
+          <Unauthenticated>
+            <SignInButton />
+          </Unauthenticated>
+        </>
+      );
+    }
+
+    function Content() {
+      const messages = useQuery(api.messages.getForCurrentUser);
+      return <div>Authenticated content: {messages?.length}</div>;
+    }
+    ```
+
+  </Step>
+
+  <Step title="Convex 함수에서 인증 상태 사용하기">
+    클라이언트가 인증되면 `ctx.auth.getUserIdentity`를 통해 JWT에 저장된 정보에 접근할 수 있습니다.
+
+    클라이언트가 인증되지 않았다면 `ctx.auth.getUserIdentity`는 `null`을 반환합니다.
+
+    **이 쿼리를 호출하는 컴포넌트가 `convex/react`의 `<Authenticated>`의 자식인지 확인하세요**. 그렇지 않으면 페이지 로드 시 오류가 발생합니다.
+
+    <TSAndJSSnippet
+      title="convex/messages.ts"
+      sourceTS={Messages}
+      sourceJS={Messages}
+    />
+
+  </Step>
+</StepByStep>
+
+### Tanstack Start
+
+**예제:**
+[Tanstack Start with Convex and Clerk](https://github.com/get-convex/templates/tree/main/template-tanstack-start)
+
+자세한 내용은 [Tanstack Start with Clerk 가이드](/client/tanstack/tanstack-start/clerk.mdx)를 참조하세요.
+
+## 다음 단계
+
+### 함수에서 사용자 정보 접근하기
+
+쿼리, 뮤테이션 및 액션에서 인증된 사용자에 대한 정보에 접근하는 방법을 알아보려면 [함수의 인증](/auth/functions-auth.mdx)을 참조하세요.
+
+Convex 데이터베이스에 사용자 정보를 저장하는 방법을 알아보려면 [Convex 데이터베이스에 사용자 저장하기](/auth/database-auth.mdx)를 참조하세요.
+
+### 클라이언트 측에서 사용자 정보 접근하기
+
+인증된 사용자의 정보에 접근하려면 Clerk의 [`useUser()`](https://clerk.com/docs/hooks/use-user) 훅을 사용하여 접근할 수 있는 Clerk의 `User` 객체를 사용하세요. `User` 객체에 대한 자세한 내용은 [Clerk 문서](https://clerk.com/docs/references/javascript/user)를 참조하세요.
+
+```tsx title="components/Badge.tsx"
+export default function Badge() {
+  const { user } = useUser();
+
+  return <span>Logged in as {user.fullName}</span>;
+}
+```
+
+## 개발 및 프로덕션 인스턴스 구성하기
+
+Convex 개발 및 프로덕션 배포 간에 다른 Clerk 인스턴스를 구성하려면 Convex 대시보드에서 구성된 환경 변수를 사용할 수 있습니다.
+
+### 백엔드 구성하기
+
+Clerk 대시보드에서 [**API keys**](https://dashboard.clerk.com/last-active?path=api-keys) 페이지로 이동합니다. Clerk Frontend API URL을 복사하세요. 이 URL은 Clerk JWT 템플릿의 발급자 도메인이며, Convex가 액세스 토큰을 검증하는 데 필요합니다. 개발 환경에서는 `https://verb-noun-00.clerk.accounts.dev` 형식입니다. 프로덕션에서는 `https://clerk.<your-domain>.com` 형식입니다.
+
+Clerk Frontend API URL을 `.env` 파일에 붙여넣고 `CLERK_JWT_ISSUER_DOMAIN` 환경 변수로 설정하세요.
+
+```env title=".env"
+CLERK_JWT_ISSUER_DOMAIN=https://verb-noun-00.clerk.accounts.dev
+```
+
+그런 다음 <JSDialectFileName name="auth.config.ts" /> 파일을 업데이트하여 환경 변수를 사용하세요.
+
+```ts title="convex/auth.config.ts"
+import { AuthConfig } from "convex/server";
+
+export default {
+  providers: [
+    {
+      domain: process.env.CLERK_JWT_ISSUER_DOMAIN!,
+      applicationID: "convex",
+    },
+  ],
+} satisfies AuthConfig;
+```
+
+**개발 구성**
+
+Convex [대시보드](https://dashboard.convex.dev)의 왼쪽 사이드바에서 개발 배포로 전환하고 개발 Clerk 인스턴스의 값을 설정하세요.
+
+{/* TODO: 스크린샷을 `CLERK_FRONTEND_API_URL` 사용으로 업데이트. `https://verb-noun-00.clerk.accounts.dev` 형식이어야 합니다 */}
+
+<p style={{ textAlign: "center" }}>
+  <img
+    src="/screenshots/clerk-convex-dashboard.png"
+    alt="Convex 대시보드 개발 배포 설정"
+    width={600}
+  />
+</p>
+
+그런 다음 배포를 새 구성으로 전환하려면 `npx convex dev`를 실행하세요.
+
+**프로덕션 구성**
+
+Convex [대시보드](https://dashboard.convex.dev)의 왼쪽 사이드바에서 프로덕션 배포로 전환하고 프로덕션 Clerk 인스턴스의 값을 설정하세요.
+
+{/* TODO: Convex 대시보드의 프로덕션 구성 스크린샷 추가. `CLERK_FRONTEND_API_URL`은 `https://clerk.<your-domain>.com` 형식이어야 합니다 */}
+
+그런 다음 배포를 새 구성으로 전환하려면 `npx convex deploy`를 실행하세요.
+
+### Clerk의 API 키 구성하기
+
+Clerk의 API 키는 개발 또는 프로덕션용인지에 따라 다릅니다. `.env` 파일과 Vercel 또는 Netlify와 같은 호스팅 플랫폼의 환경 변수도 업데이트하는 것을 잊지 마세요.
+
+**개발 구성**
+
+개발용 Clerk의 Publishable Key는 `pk_test_...` 형식을 따릅니다.
+
+```py title=".env.local"
+VITE_CLERK_PUBLISHABLE_KEY="pk_test_..."
+```
+
+**프로덕션 구성**
+
+프로덕션용 Clerk의 Publishable Key는 `pk_live_...` 형식을 따릅니다.
+
+```py title=".env"
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_live_..."
+```
+
+## 인증 디버깅하기
+
+사용자가 Clerk 로그인 플로우를 성공적으로 완료했지만 페이지로 리디렉션된 후 `useConvexAuth()`가 `isAuthenticated: false`를 반환하는 경우, 백엔드가 올바르게 구성되지 않았을 수 있습니다.
+
+<JSDialectFileName name="auth.config.ts" /> 파일에는 구성된 인증 제공자 목록이 포함되어 있습니다. 새 제공자를 추가한 후 `npx convex dev` 또는 `npx convex deploy`를 실행하여 구성을 백엔드에 동기화해야 합니다.
+
+더 자세한 디버깅 단계는 [인증 디버깅](/auth/debug.mdx)을 참조하세요.
+
+## 내부 작동 방식
+
+<UnderTheHood
+  provider="Clerk"
+  integrationProvider={<code>ConvexProviderWithClerk</code>}
+  providerProvider={<code>ClerkProvider</code>}
+  configProp={
+    <>
+      the{" "}
+      <a
+        href="https://clerk.com/docs/authentication/sign-in#override-ur-ls"
+        target="_blank"
+      >
+        <code>afterSignIn</code>
+      </a>{" "}
+      prop
+    </>
+  }
+/>

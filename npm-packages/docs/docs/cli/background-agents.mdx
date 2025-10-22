@@ -1,0 +1,24 @@
+---
+title: "Agent Mode"
+slug: "agent-mode"
+sidebar_position: 20
+sidebar_label: "Agent Mode"
+description:
+  "클라우드 기반 코딩 에이전트를 위한 익명 개발 모드 구성"
+---
+
+자신의 컴퓨터에 로그인한 상태에서 Cursor나 Claude Code와 같은 에이전트는 로그인된 자격 증명을 사용하는 `npx convex env list`와 같은 CLI 명령을 실행할 수 있으며, 마치 사용자가 직접 명령을 실행한 것처럼 개인 개발 환경에 대해 명령을 실행합니다. 이는 에이전트와 협업할 때 잘 작동합니다. 에이전트가 `git commit -am "Fix."`를 실행할 때 커밋이 로컬 git 자격 증명을 사용하는 것과 마찬가지입니다.
+
+하지만 Jules, Devin, Codex 또는 Cursor 백그라운드 에이전트와 같은 클라우드 기반 코딩 에이전트가 Convex CLI 명령을 실행할 때는 로그인할 수 없습니다. 그리고 이들을 위해 로그인하더라도, 에이전트는 개발을 위해 기본 개발 배포를 사용하여 자신의 변경 사항과 충돌하게 됩니다!
+
+대신, 이 환경에서 `CONVEX_AGENT_MODE=anonymous`를 설정하여 에이전트가 [익명 개발](/docs/cli/local-deployments-for-dev.mdx)을 사용하도록 하면, 에이전트가 작업하는 VM에서 별도의 Convex 백엔드를 실행할 수 있습니다.
+
+<BetaAdmonition feature="Convex Agent Mode" verb="is" />
+
+이 변수를 .env.local에 설정하거나 에이전트의 환경에서 설정할 수 있습니다.
+
+```
+CONVEX_AGENT_MODE=anonymous npx convex dev
+```
+
+향후 `CONVEX_AGENT_MODE`는 에이전트가 자체적으로 단기 클라우드 배포를 프로비저닝할 수 있도록 하는 것과 같은 다른 동작을 지원할 수 있습니다.

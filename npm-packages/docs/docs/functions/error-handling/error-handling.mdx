@@ -1,0 +1,131 @@
+---
+title: "오류 처리"
+sidebar_position: 70
+description: "Convex 쿼리, 뮤테이션 및 액션에서 오류 처리하기"
+---
+
+Convex [쿼리](/functions/query-functions.mdx) 및 [뮤테이션](/functions/mutation-functions.mdx)에서 오류가 발생할 수 있는 네 가지 이유가 있습니다:
+
+1. [애플리케이션 오류](#application-errors-expected-failures): 함수 코드가 추가 처리를 중지해야 하는 논리적 조건에 도달하고 코드가 `ConvexError`를 던집니다.
+1. 개발자 오류: 함수에 버그가 있습니다(예: `db.get(id)` 대신 `db.get(null)` 호출).
+1. [읽기/쓰기 제한 오류](#readwrite-limit-errors): 함수가 한 번에 너무 많은 데이터를 검색하거나 쓰고 있습니다.
+1. 내부 Convex 오류: Convex 내부에 문제가 있습니다(예: 네트워크 문제).
+
+Convex는 내부 Convex 오류를 자동으로 처리합니다. 우리 측에 문제가 있는 경우 문제가 해결되고 쿼리 및 뮤테이션이 성공할 때까지 자동으로 재시도합니다.
+
+반면에 애플리케이션, 개발자 및 읽기/쓰기 제한 오류를 처리하는 방법을 결정해야 합니다. 이러한 오류 중 하나가 발생하면 모범 사례는 다음과 같습니다:
+
+1. 사용자에게 적절한 UI를 보여줍니다.
+2. [예외 보고 통합](/production/integrations/exception-reporting)을 사용하여 예외 보고 서비스로 오류를 전송합니다.
+3. `console.*`을 사용하여 인시던트를 로그하고 [로그 스트리밍](/production/integrations/log-streams/log-streams.mdx)으로 보고를 설정합니다. 이는 위의 옵션에 추가로 수행할 수 있으며 예외가 던져질 필요가 없습니다.
+
+또한 디버깅 및 관찰성을 위해 추가 정보를 캡처하기 위해 [Sentry](https://sentry.io)와 같은 서비스로 클라이언트 측 오류를 전송할 수도 있습니다.
+
+## 쿼리의 오류
+
+쿼리 함수에서 오류가 발생하면 오류가 클라이언트로 전송되고 `useQuery` 호출 사이트에서 던져집니다. **이러한 오류를 처리하는 가장 좋은 방법은 React [오류 경계 컴포넌트](https://reactjs.org/docs/error-boundaries.html)를 사용하는 것입니다.**
+
+오류 경계를 사용하면 자식 컴포넌트 트리에서 발생한 오류를 캐치하고, 대체 UI를 렌더링하고, 예외 처리 서비스로 오류에 대한 정보를 전송할 수 있습니다. 앱에 오류 경계를 추가하는 것은 Convex 쿼리 함수의 오류와 React 컴포넌트의 다른 오류를 처리하는 좋은 방법입니다. Sentry를 사용하는 경우 [`Sentry.ErrorBoundary`](https://docs.sentry.io/platforms/javascript/guides/react/components/errorboundary/) 컴포넌트를 사용할 수 있습니다.
+
+오류 경계를 사용하면 대체 UI를 얼마나 세분화할지 결정할 수 있습니다. 한 가지 간단한 옵션은 다음과 같이 단일 오류 경계로 전체 애플리케이션을 래핑하는 것입니다:
+
+```tsx
+<StrictMode>
+  <ErrorBoundary>
+    <ConvexProvider client={convex}>
+      <App />
+    </ConvexProvider>
+  </ErrorBoundary>
+</StrictMode>,
+```
+
+그러면 컴포넌트의 모든 오류가 경계에 의해 캐치되고 동일한 대체 UI를 렌더링합니다.
+
+반면에 다른 부분에서 오류가 발생하더라도 앱의 일부 부분이 계속 작동하도록 하려면 앱의 다른 부분을 별도의 오류 경계로 래핑할 수 있습니다.
+
+<Admonition type="note" title="재시도">
+
+다른 프레임워크와 달리 쿼리 함수에서 오류가 발생한 경우 "재시도"라는 개념이 없습니다. Convex 함수는 [결정론적](/functions/query-functions.mdx#caching--reactivity--consistency)이기 때문에 쿼리 함수에서 오류가 발생하면 재시도는 항상 동일한 오류를 생성합니다. 동일한 인수로 쿼리 함수를 다시 실행할 필요가 없습니다.
+
+</Admonition>
+
+## 뮤테이션의 오류
+
+뮤테이션에서 오류가 발생하면 다음과 같은 일이 발생합니다:
+
+1. 뮤테이션 호출에서 반환된 Promise가 거부됩니다.
+2. [낙관적 업데이트](/client/react/optimistic-updates.mdx)가 롤백됩니다.
+
+[Sentry](https://sentry.io/)와 같은 예외 서비스가 구성되어 있으면 이와 같은 "처리되지 않은 Promise 거부"를 자동으로 보고해야 합니다. 즉, 추가 작업 없이 뮤테이션 오류가 보고되어야 합니다.
+
+뮤테이션의 오류는 컴포넌트 렌더링의 일부로 오류가 발생하지 않기 때문에 오류 경계에 의해 캐치되지 않습니다.
+
+뮤테이션 실패에 대한 응답으로 특별히 UI를 렌더링하려면 뮤테이션 호출에서 `.catch`를 사용할 수 있습니다. 예를 들어:
+
+```javascript
+sendMessage(newMessageText).catch((error) => {
+  // 여기서 `error`로 무언가를 합니다
+});
+```
+
+`async` 핸들러 함수를 사용하는 경우 `try...catch`를 사용할 수도 있습니다:
+
+```javascript
+try {
+  await sendMessage(newMessageText);
+} catch (error) {
+  // 여기서 `error`로 무언가를 합니다
+}
+```
+
+<Admonition type="caution" title="캐치된 오류 보고">
+
+뮤테이션 오류를 처리하면 더 이상 처리되지 않은 Promise 거부가 되지 않습니다. 이 오류를 예외 처리 서비스에 수동으로 보고해야 할 수 있습니다.
+
+</Admonition>
+
+## 액션 함수의 오류
+
+쿼리 및 뮤테이션과 달리 [액션](//docs/functions/actions.mdx)은 부작용이 있을 수 있으므로 오류가 발생했을 때 Convex에서 자동으로 재시도할 수 없습니다. 예를 들어, 액션이 이메일을 보낸다고 가정해 보겠습니다. 중간에 실패하면 Convex는 이메일이 이미 전송되었는지 알 수 있는 방법이 없으며 안전하게 액션을 재시도할 수 없습니다. 액션에서 발생한 오류를 처리하고 적절한 경우 재시도하는 것은 호출자의 책임입니다.
+
+## 개발과 프로덕션 간의 오류 보고 차이점
+
+개발 배포를 사용하면 클라이언트에서 발생한 모든 서버 오류에 디버깅을 용이하게 하기 위해 원래 오류 메시지와 서버 측 스택 추적이 포함됩니다.
+
+프로덕션 배포를 사용하면 모든 서버 오류가 함수 이름과 일반적인 `"Server Error"` 메시지만 포함하도록 수정되며 스택 추적이 없습니다. 서버 [애플리케이션 오류](/functions/error-handling/application-errors.mdx)는 여전히 사용자 정의 `data`를 포함합니다.
+
+개발 및 프로덕션 배포 모두 주어진 배포의 [로그](/dashboard/deployments/logs.md) 페이지에서 찾을 수 있는 스택 추적과 함께 전체 오류를 로그합니다.
+
+## 애플리케이션 오류, 예상되는 실패
+
+함수가 실패할 수 있는 예상되는 방법이 있는 경우 다른 값을 반환하거나 `ConvexError`를 던질 수 있습니다.
+
+[애플리케이션 오류](/functions/error-handling/application-errors.mdx)를 참조하세요.
+
+## 읽기/쓰기 제한 오류
+
+가동 시간을 보장하고 성능을 보장하기 위해 Convex는 너무 많은 데이터를 읽거나 쓰려는 쿼리 및 뮤테이션을 캐치합니다. 이러한 제한은 단일 쿼리 또는 뮤테이션 함수 실행 수준에서 적용됩니다. 제한은 다음과 같습니다:
+
+쿼리 및 뮤테이션은 다음과 같은 경우 오류가 발생합니다:
+
+- 16384개 이상의 문서가 스캔됨
+- 8MiB 이상의 데이터가 스캔됨
+- `db.get` 또는 `db.query`에 대한 쿼리 호출이 4096번 이상 이루어짐
+- 함수가 JavaScript 실행에 1초 이상 소비함
+
+또한 뮤테이션은 다음과 같은 경우 오류가 발생합니다:
+
+- 8192개 이상의 문서가 작성됨
+- 8MiB 이상의 데이터가 작성됨
+
+문서는 데이터베이스에서 `db.query`에서 반환해야 하는 문서를 파악하기 위해 "스캔"됩니다. 예를 들어 `db.query("table").take(5).collect()`는 5개의 문서만 스캔하면 되지만 `db.query("table").filter(...).first()`는 주어진 필터와 일치하는 첫 번째 문서를 찾기 위해 `"table"`에 있는 문서만큼 많은 문서를 스캔해야 할 수 있습니다.
+
+`db.get` 및 `db.query` 호출 수에는 단일 쿼리가 너무 많은 인덱스 범위를 구독하는 것을 방지하기 위한 제한이 있습니다.
+
+일반적으로 이러한 제한에 자주 부딪히는 경우 스캔되는 문서 수를 줄이기 위해 [쿼리 인덱싱](/database/reading-data/indexes/indexes.md)을 권장하여 불필요한 읽기를 피할 수 있습니다. 데이터의 큰 영역을 스캔하는 쿼리는 처음에는 무해해 보일 수 있지만 프로덕션 규모에서 쉽게 폭발할 수 있습니다. 함수가 이러한 제한에 가까워지면 경고를 로그합니다.
+
+다른 제한사항에 대한 정보는 [여기](/production/state/limits.mdx)를 참조하세요.
+
+## 오류 디버깅
+
+[디버깅](/functions/debugging.mdx) 및 특히 [요청 ID로 관련 로그 찾기](/functions/debugging.mdx#finding-relevant-logs-by-request-id)를 참조하세요.

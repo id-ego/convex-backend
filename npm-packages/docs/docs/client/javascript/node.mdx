@@ -1,0 +1,61 @@
+---
+title: "Node.js"
+hidden: false
+sidebar_position: 100
+description: "Node.js 애플리케이션에서 Convex HTTP 및 구독 클라이언트 사용하기"
+---
+
+Convex는 Node.js에서 단일 시점 쿼리([HTTP 클라이언트](/api/classes/browser.ConvexHttpClient) 참조)와 쿼리 구독([ConvexClient](/api/classes/browser.ConvexClient) 참조)을 지원합니다.
+
+JavaScript 코드가 import/export 구문을 사용하는 경우 Convex 함수 호출은 브라우저에서와 동일하게 작동합니다.
+
+```js
+import { ConvexHttpClient, ConvexClient } from "convex/browser";
+import { api } from "./convex/_generated/api.js";
+
+// HTTP client
+const httpClient = new ConvexHttpClient(CONVEX_URL_GOES_HERE);
+httpClient.query(api.messages.list).then(console.log);
+
+// Subscription client
+const client = new ConvexClient(CONVEX_URL_GOES_HERE);
+client.onUpdate(api.messages.list, {}, (messages) => console.log(messages));
+```
+
+## TypeScript
+
+브라우저용 번들링과 마찬가지로 webpack, esbuild, rollup, vite 등으로 Node.js용 TypeScript 코드를 번들링하면 일반적으로 추가 설정 없이 import/export 구문을 사용하는 코드에서 가져올 수 있습니다.
+
+TypeScript를 사용하여 코드를 _컴파일_하는 경우(웹 프로젝트에서는 드물지만 Node.js에서는 더 일반적임) TypeScript가 `api.js` 파일도 컴파일하도록 `tsconfig.json` 컴파일러 옵션에 `"allowJs": true`를 추가하세요.
+
+## 컴파일 단계 없이 TypeScript 사용하기
+
+컴파일 단계 없이 TypeScript 스크립트를 직접 실행하려는 경우 [ts-node-esm](https://www.npmjs.com/package/ts-node)을 설치하고 `package.json`에서 `"type": "module"`을 사용하면 ts-node-esm으로 스크립트를 실행할 수 있어야 합니다.
+
+## CommonJS(`require()` 구문)를 사용하는 JavaScript
+
+프로젝트의 `package.json`에서 `"type": "module"`을 사용하지 않는 경우 `require()` 구문을 사용해야 하며 Node.js는 `convex/_generated/api.js` 파일을 직접 가져올 수 없습니다.
+
+`package.json`과 동일한 디렉토리에 [`convex.json`](/production/project-configuration.mdx#convexjson)을 생성하거나 편집하세요:
+
+```json title=convex.json
+{
+  "generateCommonJSApi": true
+}
+```
+
+`convex dev` 명령이 `convex/_generated/`에 파일을 생성하면 CommonJS 코드에서 가져올 수 있는 새로운 `api_cjs.cjs` 파일이 생성됩니다.
+
+```js
+const { ConvexHttpClient, ConvexClient } = require("convex/browser");
+const { api } = require("./convex/_generated/api_cjs.cjs");
+const httpClient = new ConvexHttpClient(CONVEX_URL_GOES_HERE);
+```
+
+## 컴파일 단계 없이 CommonJS를 사용하는 TypeScript
+
+위의 CommonJS 단계를 따르고 [`ts-node`](https://www.npmjs.com/package/ts-node)를 사용하여 코드를 실행하세요. `tsconfig.json`이 CommonJS 출력용으로 구성되어 있는지 확인하세요.
+
+## 코드 생성 없이 Node.js에서 Convex 사용하기
+
+Convex 함수와 api 파일이 없는 경우 항상 `anyApi` 객체나 문자열을 사용할 수 있습니다. `api.folder.file.exportName`과 같은 api 참조는 `anyApi.folder.file.exportName` 또는 `"folder/file:exportName"`이 됩니다.

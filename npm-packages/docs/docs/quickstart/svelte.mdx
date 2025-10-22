@@ -1,0 +1,129 @@
+---
+title: Svelte 빠른 시작
+sidebar_label: Svelte
+description: "Svelte 프로젝트에 Convex 추가하기"
+hide_table_of_contents: true
+sidebar_position: 350
+---
+
+import sampleData from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/sampleData.jsonl";
+import layout from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/src/routes/+layout.svelte";
+import tasks from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/src/convex/tasks.ts";
+import page from "!!raw-loader!@site/../private-demos/quickstarts/sveltekit/src/routes/+page.svelte";
+
+Svelte 앱에서 Convex 데이터를 쿼리하는 방법을 알아보세요.
+
+<StepByStep>
+  <Step title="SvelteKit 앱 생성하기">
+    `npx sv create` 명령을 사용하여 SvelteKit 앱을 생성하세요.
+
+    다른 옵션 세트도 라이브러리와 함께 작동하지만 이 빠른 시작 가이드에서는:
+
+    - "Which Svelte app template"의 경우 **"SvelteKit minimal"**을 선택하세요.
+    - 패키지 매니저의 경우 **"npm"**을 선택하세요.
+    - "Add type checking with TypeScript"의 경우 **"Yes, using TypeScript syntax"**를 선택하세요.
+    - "Select additional options"의 경우 아무것도 활성화할 필요가 없습니다.
+
+    <br></br>
+
+    ```sh
+    npx sv@latest create my-app
+    ```
+
+  </Step>
+
+  <Step title="Convex 클라이언트 및 서버 라이브러리 설치하기">
+    시작하려면 `convex`와 `convex-svelte` 패키지를 설치하세요.
+
+    ```sh
+    cd my-app && npm install convex convex-svelte
+    ```
+
+  </Step>
+
+  <Step title="convex 경로 사용자 지정하기">
+    SvelteKit은 소스 외부의 코드를 참조하는 것을 좋아하지 않으므로 convex functionsDir를 `src/` 아래로 사용자 지정하세요.
+
+    <Snippet
+      source={'{\n\t\"functions\": "src/convex/\"\n}'}
+      title="convex.json"
+    />
+
+  </Step>
+
+  <Step title="Convex 개발 배포 설정하기">
+    다음으로, `npx convex dev`를 실행하세요. 이것은 GitHub로 로그인하고, 프로젝트를 생성하고, 프로덕션 및 배포 URL을 저장하라는 메시지를 표시합니다.
+
+    또한 백엔드 API 함수를 작성할 수 있는 `src/convex/` 폴더를 생성합니다. `dev` 명령은 계속 실행되면서 함수를 클라우드의 개발 배포와 동기화합니다.
+
+
+    ```sh
+    npx convex dev
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스용 샘플 데이터 생성하기">
+    새 터미널 창에서 샘플 데이터가 포함된 `sampleData.jsonl` 파일을 생성하세요.
+
+    <Snippet
+      source={sampleData}
+      title="sampleData.jsonl"
+    />
+
+  </Step>
+
+  <Step title="데이터베이스에 샘플 데이터 추가하기">
+    이제 프로젝트가 준비되었으므로 `import` 명령을 사용하여 샘플 데이터가 포함된 `tasks` 테이블을 Convex 데이터베이스에 추가하세요.
+
+    ```
+    npx convex import --table tasks sampleData.jsonl
+    ```
+
+  </Step>
+
+  <Step title="데이터베이스 쿼리 노출하기">
+    `convex/` 폴더에 데이터를 로드하는 쿼리 함수가 포함된 새 파일 <JSDialectFileName name="tasks.ts" />를 추가하세요.
+
+    이 파일에서 쿼리 함수를 내보내면 파일과 내보내기 이름으로 명명된 API 함수 `api.tasks.get`이 선언됩니다.
+
+    <Snippet
+      source={tasks}
+      title="src/convex/tasks.ts"
+    />
+
+  </Step>
+
+  <Step title="Convex 설정하기">
+    새 파일 `src/routes/+layout.svelte`를 생성하고 거기에서 Convex 클라이언트를 설정하여 앱의 모든 페이지에서 사용할 수 있도록 하세요.
+
+    <Snippet
+      source={layout}
+      title="src/routes/+layout.svelte"
+    />
+
+  </Step>
+
+  <Step title="앱에 데이터 표시하기">
+    `src/routes/+page.svelte`에서 `useQuery`를 사용하여 `api.tasks.get` API 함수를 구독하세요.
+
+    <Snippet
+      source={page}
+      title="src/routes/+page.svelte"
+      jsExtension="js"
+    />
+
+  </Step>
+
+  <Step title="앱 시작하기">
+    앱을 시작하고, 브라우저에서 [http://localhost:5173](http://localhost:5173)을 열어 작업 목록을 확인하세요.
+
+    ```sh
+    npm run dev
+    ```
+
+  </Step>
+
+</StepByStep>
+
+[Svelte npm 패키지 문서](https://www.npmjs.com/package/convex-svelte)를 참조하세요.
