@@ -1,0 +1,23 @@
+# Netlify Build Configuration for Convex Docs
+[build]
+  # Base directory - where the docs package is located
+  base = "npm-packages/docs"
+
+  # Build command - install dependencies and build
+  command = "npm ci && npm run build"
+
+  # Publish directory - relative to base directory
+  publish = "build"
+
+# Headers configuration for font caching
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, stale-while-revalidate=86400"
+
+# Redirect configuration
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = false
