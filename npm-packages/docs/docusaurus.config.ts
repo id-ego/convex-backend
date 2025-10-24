@@ -389,7 +389,7 @@ const config: Config = {
           "/generated-api/**",
           "/http-api/**",
         ],
-        onRouteError: "skip",
+        onRouteError: "ignore",
       },
     ],
     [
