@@ -1,13 +1,26 @@
-# Netlify Build Configuration for Convex Docs
+# Netlify Build Configuration for Convex Docs (Rush Monorepo)
 [build]
-  # Base directory - where the docs package is located
-  base = "npm-packages/docs"
+  # Build from repository root to support workspace:* dependencies
+  base = "."
 
-  # Build command - install dependencies and build
-  command = "npm ci && npm run build"
+  # Use pnpm to support workspace:* protocol
+  # Install and build dependencies using pnpm filter
+  command = """
+    corepack enable && \
+    corepack prepare pnpm@latest --activate && \
+    pnpm install --frozen-lockfile=false && \
+    pnpm --filter convex... run build && \
+    pnpm --filter convex-ai-chat... run build && \
+    pnpm --filter convex-analytics... run build && \
+    pnpm --filter docs run build
+  """
 
-  # Publish directory - relative to base directory
-  publish = "build"
+  # Publish directory - absolute path from repo root
+  publish = "npm-packages/docs/build"
+
+# Node version
+[build.environment]
+  NODE_VERSION = "20.19.5"
 
 # Headers configuration for font caching
 [[headers]]
@@ -15,7 +28,7 @@
   [headers.values]
     Cache-Control = "public, max-age=31536000, stale-while-revalidate=86400"
 
-# Redirect configuration
+# SPA redirect configuration
 [[redirects]]
   from = "/*"
   to = "/index.html"

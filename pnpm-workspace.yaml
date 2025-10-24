@@ -1,0 +1,4 @@
+# pnpm workspace configuration for Netlify deployment
+packages:
+  - 'npm-packages/*'
+  - 'npm-packages/system-udfs/*'
